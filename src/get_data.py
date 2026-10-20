@@ -1,14 +1,27 @@
+# **************************************************************************** #
+#                                                                              #
+#                                                         :::      ::::::::    #
+#    get_data.py                                        :+:      :+:    :+:    #
+#                                                     +:+ +:+         +:+      #
+#    By: vivozzo- <vivozzo-@student.42porto.com>    +#+  +:+       +#+         #
+#                                                 +#+#+#+#+#+   +#+            #
+#    Created: 2026/10/20 12:20:40 by vivozzo-          #+#    #+#              #
+#    Updated: 2026/10/20 13:41:01 by vivozzo-         ###   ########.fr        #
+#                                                                              #
+# **************************************************************************** #
+
 
 import json
 from typing import Any
 
 
-def read_input() -> tuple[str, tuple[Any]]:
+def read_input(functions_definition_path: str,
+               function_calling_tests: str) -> tuple[str, tuple[Any]]:
 
     errors = ""
 
     try:
-        with open("../data/input/functions_definition.json", "r") as file:
+        with open(functions_definition_path, "r") as file:
             content = file.read()
 
             if not content.strip():
@@ -21,7 +34,7 @@ def read_input() -> tuple[str, tuple[Any]]:
         errors += f"json error in functions_definition file: {error}\n"
 
     try:
-        with open("../data/input/function_calling_tests.json", "r") as f:
+        with open(function_calling_tests, "r") as f:
             content = f.read()
 
             if not content.strip():
@@ -40,7 +53,7 @@ def read_input() -> tuple[str, tuple[Any]]:
 
 
 def parsing_function_calling_tests(tests_json_data: Any) -> str:
-    error_msg = ("tests_json_data.json invalid json syntax, "
+    error_msg = ("function_calling_tests.json invalid json syntax, "
                  "must be:\n"
                  "[{'prompt': prompt_text}, ...]\n"
                  "prompt_text need to be a string")
@@ -103,17 +116,19 @@ def parsing_functions_definition(functions_json_data: Any) -> str:
 
     return ""
 
-def parsing() -> tuple[str, tuple[Any]]:
+
+def parsing() -> tuple[Any]:
     errors = ""
-    read = read_input()
+    read = read_input("../data/input/functions_definition.json",
+                      "../data/input/function_calling_tests.json")
     errors = read[0]
     if errors:
-        return (errors, (None, None))
+        raise Exception (errors)
 
     functions_json_data, tests_json_data = read[1]
     errors += parsing_function_calling_tests(tests_json_data)
     errors += parsing_functions_definition(functions_json_data)
 
-    return (errors,(functions_json_data, tests_json_data))
-
-
+    if errors:
+        raise Exception (errors)
+    return (functions_json_data, tests_json_data)
