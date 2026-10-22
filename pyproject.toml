@@ -1,0 +1,21 @@
+[project]
+name = "Call_me_maybe"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "vivozzo-" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "llm-sdk>=0.1.0",
+]
+
+[dependency-groups]
+dev = ["flake8", "mypy"]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+llm-sdk = { path = "./llm_sdk" }
