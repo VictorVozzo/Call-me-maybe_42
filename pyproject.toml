@@ -1,7 +1,7 @@
 [project]
 name = "Call_me_maybe"
 version = "0.1.0"
-description = "Add your description here"
+description = "Implementation of Function Calling with an LLM using Constrained Decoding to guarantee 100% valid JSON generation"
 readme = "README.md"
 authors = [
     { name = "vivozzo-" }
@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.10"
 dependencies = [
     "llm-sdk>=0.1.0",
+    "numpy>=2.2.6",
 ]
 
 [dependency-groups]
@@ -18,4 +19,5 @@ dev = ["flake8", "mypy"]
 package = false
 
 [tool.uv.sources]
-llm-sdk = { path = "./llm_sdk" }
+llm-sdk = { path = "./src/llm_sdk", editable = true }
+
