@@ -8,8 +8,9 @@ authors = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "llm-sdk>=0.1.0",
     "numpy>=2.2.6",
+    "llm_sdk",
+    "accelerate>=1.14.0",
 ]
 
 [dependency-groups]

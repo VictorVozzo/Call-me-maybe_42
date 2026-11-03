@@ -1,12 +1,12 @@
 # **************************************************************************** #
 #                                                                              #
-#                                                         :::      ::::::::    #
-#    makefile                                           :+:      :+:    :+:    #
-#                                                     +:+ +:+         +:+      #
-#    By: vivozzo- <vivozzo-@student.42porto.com>    +#+  +:+       +#+         #
-#                                                 +#+#+#+#+#+   +#+            #
-#    Created: 2026/10/22 10:45:51 by vivozzo-          #+#    #+#              #
-#    Updated: 2026/10/22 19:04:23 by vivozzo-         ###   ########.fr        #
+#                                                          :::      ::::::::   #
+#   makefile                                             :+:      :+:    :+:   #
+#                                                      +:+ +:+         +:+     #
+#   By: vivozzo- <vivozzo-@student.42porto.com>      +#+  +:+       +#+        #
+#                                                  +#+#+#+#+#+   +#+           #
+#   Created: 2026/10/22 10:45:51 by vivozzo-            #+#    #+#             #
+#   Updated: 2026/11/03 15:24:18 by vivozzo-           ###   ########.fr       #
 #                                                                              #
 # **************************************************************************** #
 
@@ -16,7 +16,11 @@ FUNCTIONS = data/input/functions_definition.json
 INPUT = data/input/function_calling_tests.json
 OUTPUT = data/output/function_calling_results.json
 
+PROJECT_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+HF_HOME := $(PROJECT_DIR)/.cache/huggingface
+
 export PATH := $(HOME)/.local/bin:$(PATH)
+export HF_HOME
 
 all: install
 
@@ -27,7 +31,7 @@ install:
 		echo "uv not found. Lets install it"; \
 		curl -LsSf https://astral.sh/uv/install.sh | sh; \
 	fi
-	uv sync
+	uv sync --no-cache
 
 run:
 	@uv run python -m src \
