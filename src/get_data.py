@@ -1,112 +1,85 @@
+# *************************************************************************** #
+#                                                                             #
+#                                                         :::      ::::::::   #
+#   get_data.py                                         :+:      :+:    :+:   #
+#                                                     +:+ +:+         +:+     #
+#   By: vivozzo- <vivozzo-@student.42porto.com>     +#+  +:+       +#+        #
+#                                                 +#+#+#+#+#+   +#+           #
+#   Created: 2026/11/04 16:38:08 by vivozzo-           #+#    #+#             #
+#   Updated: 2026/11/04 21:18:05 by vivozzo-          ###   ########.fr       #
+#                                                                             #
+# *************************************************************************** #
 
 import json
-from typing import Any
+from typing import Any, TypeVar
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 
-def read_input(functions_definition_path: str,
-               function_calling_tests: str) -> tuple[str, tuple[Any]]:
+TV = TypeVar("TV", bound=BaseModel)
 
-    errors = ""
+
+class FunctionCalling(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    prompt: str
+
+
+class ParameterType(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    type: str
+
+
+class FunctionsDefinition(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    name: str
+    description: str
+    parameters: dict[str, ParameterType]
+    returns: ParameterType
+
+
+def load_json(file_path: str, model_class: type[TV]) -> list[TV]:
 
     try:
-        with open(functions_definition_path, "r") as file:
-            content = file.read()
-
-            if not content.strip():
-                errors += "functions_definition.json file is empty\n"
-            else:
-                functions_json_data = json.loads(content)
+        with open(file_path, "r") as file:
+            content = json.load(file)
     except FileNotFoundError as e:
-        errors += f"Error: {e}\n"
-    except json.decoder.JSONDecodeError as error:
-        errors += f"json error in functions_definition file: {error}\n"
+        raise FileNotFoundError(
+            f"File not found: {file_path}"
+        ) from e
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"Invalid JSON in {file_path}: {e}"
+        ) from e
 
-    try:
-        with open(function_calling_tests, "r") as f:
-            content = f.read()
+    if not isinstance(content, list):
+        raise ValueError(
+            f"{file_path} must contain a JSON array"
+        )
 
-            if not content.strip():
-                errors += "function_calling_tests.json file is empty\n"
-            else:
-                tests_json_data = json.loads(content)
-    except FileNotFoundError as e:
-        errors += f"Error: {e}\n"
-    except json.decoder.JSONDecodeError as error:
-        errors += f"json error in function_calling_tests file: {error}\n"
+    if not content:
+        raise ValueError(
+            f"{file_path} is empty"
+        )
 
-    if errors:
-        return (errors, ())
-
-    return (errors, (functions_json_data, tests_json_data))
-
-
-def parsing_function_calling_tests(tests_json_data: Any) -> str:
-    error_msg = ("function_calling_tests.json invalid json syntax, "
-                 "must be:\n"
-                 "[{'prompt': prompt_text}, ...]\n"
-                 "prompt_text need to be a string")
-
-    if not (isinstance(tests_json_data, list) and
-            all(isinstance(item, dict) for item in tests_json_data)):
-        return error_msg
-
-    for test in tests_json_data:
-        if len(test) != 1:
-            return error_msg
-        if 'prompt' not in test:
-            return error_msg
-        if not isinstance(test['prompt'], str):
-            return error_msg
-
-    return ""
-
-
-def parsing_functions_definition(functions_json_data: Any) -> str:
-    error_msg = ("functions_definition.json invalid json syntax, "
-                 "must be:\n"
-                 "[{'name': function name}, \n"
-                 "{'description: function description}, \n"
-                 "{'parameters': {parameter: {'type': parameter type}, ...} }"
-                 ", \n{'returns': {'type': variable type} }, ...]\n"
-                 "function name, function description, parameter and"
-                 " function/parameter type need to be a string\n")
-
-    if not (isinstance(functions_json_data, list) and
-            all(isinstance(item, dict) for item in functions_json_data)):
-        return error_msg
-
-    for function in functions_json_data:
-        if len(function) != 4:
-            return error_msg
-        if ('name' not in function or 'description' not in function or
-                'parameters' not in function or 'returns' not in function):
-            return error_msg
-        if (not isinstance(function['name'], str) or
-                not isinstance(function['description'], str)):
-            return error_msg
-        if not isinstance(function['parameters'], dict):
-            return error_msg
-        for parameter_value in function['parameters'].values():
-            if not isinstance(parameter_value, dict):
-                return error_msg
-            if len(parameter_value) != 1:
-                return error_msg
-            if ('type' not in parameter_value or
-                    not isinstance(parameter_value['type'], str)):
-                return error_msg
-        if not isinstance(function['returns'], dict):
-            return error_msg
-        if len(function['returns']) != 1:
-            return error_msg
-        if ('type' not in function['returns'] or
-                not isinstance(function['returns']['type'], str)):
-            return error_msg
-
-    return ""
-
-
-def parsing(argv: list[str]) -> tuple[Any]:
     errors = ""
+    list_model_class = []
+
+    for item in content:
+        try:
+            item_validate = model_class.model_validate(item)
+            list_model_class.append(item_validate)
+        except ValidationError as e:
+            errors += f"Validation error in {file_path}: {e}\n\n"
+
+    if errors != "":
+        raise Exception(errors)
+
+    return list_model_class
+
+
+def parsing(argv: list[str]) -> tuple[list[FunctionsDefinition], list[FunctionCalling], str]:
 
     if len(argv) != 1 and len(argv) != 7:
         raise Exception("Usage: v run python -m src "
@@ -131,15 +104,8 @@ def parsing(argv: list[str]) -> tuple[Any]:
         input_path = argv[4]
         output_path = argv[6]
 
-    read = read_input(functions_definition_path, input_path)
-    errors = read[0]
-    if errors:
-        raise Exception(errors)
+    functions_json_data = load_json(
+        functions_definition_path, FunctionsDefinition)
+    tests_json_data = load_json(input_path, FunctionCalling)
 
-    functions_json_data, tests_json_data = read[1]
-    errors += parsing_function_calling_tests(tests_json_data)
-    errors += parsing_functions_definition(functions_json_data)
-
-    if errors:
-        raise Exception(errors)
-    return (functions_json_data, tests_json_data)
+    return (functions_json_data, tests_json_data, output_path)

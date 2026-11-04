@@ -6,7 +6,7 @@
 #   By: vivozzo- <vivozzo-@student.42porto.com>      +#+  +:+       +#+        #
 #                                                  +#+#+#+#+#+   +#+           #
 #   Created: 2026/10/22 10:45:51 by vivozzo-            #+#    #+#             #
-#   Updated: 2026/11/03 15:24:18 by vivozzo-           ###   ########.fr       #
+#   Updated: 2026/11/04 20:47:31 by vivozzo-           ###   ########.fr       #
 #                                                                              #
 # **************************************************************************** #
 
@@ -60,6 +60,7 @@ clean:
 
 fclean: clean
 	rm -rf .venv
+	rm -rf .cache
 
 re: fclean all
 
