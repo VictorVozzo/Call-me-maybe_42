@@ -4,12 +4,12 @@ from .get_data import FunctionsDefinition, FunctionCalling, ParameterType
 
 
 def function_calling(tests_json_data: Any) -> str:
-    text = ""
+    prompt_list = []
 
     for test in tests_json_data:
-        text += f"Prompt: {test.prompt}\n"
+        prompt_list.append(f"{test.prompt}")
 
-    return text
+    return prompt_list
 
 
 def functions_def_parameters(functions_parameter: dict[str, ParameterType]) -> str:
@@ -34,14 +34,18 @@ return type: {function.returns.type}. \n"
 
 
 def prompt(functions_json_data: Any, tests_json_data: Any) -> str:
-    prompt = f"Write a function call json output as a \
-list of dictionaires, follow exactly the example:\n\
-[\n{{\n'prompt': prompt_text,\n'name': function_name,\n\
+    list_prompts = []
+    list_tests_json_data = function_calling(tests_json_data)
+
+    for test in list_tests_json_data:
+        list_prompts.append(f"Write a function call json output as a \
+dictionaire, follow exactly the example:\n\
+\n{{\n'prompt': prompt_text,\n'name': function_name,\n\
 'parameters': {{first_parameter: parameter, \
-second_parameter: parameter, ...}}\n }},\n ...\n] \n\n\
+second_parameter: parameter, ...}}\n}} \n\n\
 Available functions: \n\n\
 {functions_def(functions_json_data)} \n\n\
-The functions must follow this prompts:\n\n\
-{function_calling(tests_json_data)}"
+The function must follow this prompt:\n\n\
+{test}")
 
-    return prompt
+    return list_prompts
