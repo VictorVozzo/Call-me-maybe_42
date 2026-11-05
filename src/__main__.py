@@ -6,7 +6,7 @@
 #   By: vivozzo- <vivozzo-@student.42porto.com>     +#+  +:+       +#+        #
 #                                                 +#+#+#+#+#+   +#+           #
 #   Created: 2026/11/04 17:09:30 by vivozzo-           #+#    #+#             #
-#   Updated: 2026/11/04 21:18:00 by vivozzo-          ###   ########.fr       #
+#   Updated: 2026/11/05 10:30:41 by vivozzo-          ###   ########.fr       #
 #                                                                             #
 # *************************************************************************** #
 
@@ -21,14 +21,15 @@ def main() -> None:
     try:
         parsing_data = parsing(argv)
         functions_json_data, tests_json_data, output_path = parsing_data
-        for functions in functions_json_data:
-            print(functions)
-            print()
-        print("\n\n")
-        for test in tests_json_data:
-            print(test)
-            print()
-        # prompt_text = prompt(functions_json_data, tests_json_data)
+        # for functions in functions_json_data:
+        #     print(functions)
+        #     print()
+        # print("\n\n")
+        # for test in tests_json_data:
+        #     print(test)
+        #     print()
+        prompt_text = prompt(functions_json_data, tests_json_data)
+        print(prompt_text)
         # small_llm = Small_LLM_Model()
         # ids = small_llm.encode("What is the result of 1 + 4 ?").tolist()[0]
         # logits = small_llm.get_logits_from_input_ids(ids)
