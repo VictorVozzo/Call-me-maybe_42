@@ -6,13 +6,14 @@
 #   By: vivozzo- <vivozzo-@student.42porto.com>     +#+  +:+       +#+        #
 #                                                 +#+#+#+#+#+   +#+           #
 #   Created: 2026/11/04 17:09:30 by vivozzo-           #+#    #+#             #
-#   Updated: 2026/11/05 15:30:50 by vivozzo-          ###   ########.fr       #
+#   Updated: 2026/11/06 11:44:07 by vivozzo-          ###   ########.fr       #
 #                                                                             #
 # *************************************************************************** #
 
 from sys import argv
 from .get_data import parsing
 from .prompt import prompt
+from . constrained_decoding import ConstrainedDecoding
 from .llm_sdk.llm_sdk import Small_LLM_Model
 from numpy import argmax
 
@@ -21,24 +22,10 @@ def main() -> None:
     try:
         parsing_data = parsing(argv)
         functions_json_data, tests_json_data, output_path = parsing_data
-        # for functions in functions_json_data:
-        #     print(functions)
-        #     print()
-        # print("\n\n")
-        # for test in tests_json_data:
-        #     print(test)
-        #     print()
         prompt_list = prompt(functions_json_data, tests_json_data)
-        for prmpt in prompt_list:
-            print(prmpt)
-            print("-" * 180)
-            print("\n\n")
-        # small_llm = Small_LLM_Model()
-        # ids = small_llm.encode("What is the result of 1 + 4 ?").tolist()[0]
-        # logits = small_llm.get_logits_from_input_ids(ids)
-        # best_token = argmax(logits)
-        # next_token = small_llm.decode(best_token)
-        # print(small_llm.get_path_to_vocab_file())
+        constrained_decoding = ConstrainedDecoding()
+        constrained_decoding.tokens_numbers()
+        # print(constrained_decoding.vocab_file)
     except Exception as e:
         print(f"Caught an error: \n{e}")
 
