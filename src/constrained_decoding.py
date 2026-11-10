@@ -1,13 +1,16 @@
-from math import inf
-from numpy import argmax
+from math import isfinite
 import json
+from copy import deepcopy
 from .llm_sdk.llm_sdk import Small_LLM_Model
-from .get_data import FunctionsDefinition
+from .get_data import FunctionsDefinition, FunctionCalling
 
 
 class ConstrainedDecoding():
-    def __init__(self, functions_json_data: list[FunctionsDefinition], prompt_list: list[str]) -> None:
+    def __init__(self, functions_json_data: list[FunctionsDefinition],
+                 tests_json_data: list[FunctionCalling],
+                 prompt_list: list[str]) -> None:
         self.functions_json_data = functions_json_data
+        self.tests_json_data = tests_json_data
         self.prompt_list = prompt_list
         self.small_llm = Small_LLM_Model()
         self.create_vocab_file()
@@ -23,10 +26,10 @@ class ConstrainedDecoding():
                 f"Vocab file not found: {vocab_file_path}"
             ) from e
 
-        self.content_id_vocab: dict[int, str] = {}
+        self.id_content_vocab: dict[int, str] = {}
 
         for key, value in vocab_file.items():
-            self.content_id_vocab[value] = key
+            self.id_content_vocab[value] = key
 
     def get_function_names(self) -> None:
         self.functions_names: list[str] = []
@@ -58,17 +61,89 @@ class ConstrainedDecoding():
 
         return self.small_llm.decode(max_logit)
 
-    # just testing tokens(not final function)
-    def tokens_numbers(self) -> str:
-        ids = []
+    # find valid tokens numbers, the last param includes }
+    def valid_tokens_numbers(self) -> tuple[list[int], list[int]]:
+        valid_tokens: list[int] = []
+        valid_tokens_last: list[int] = []
+
+        for id, token in self.id_content_vocab.items():
+            try:
+                check_token = float(token)
+                if not isfinite(check_token):
+                    raise
+                valid_tokens.append(token)
+                valid_tokens_last.append(token)
+            except:
+                if token == "-" or token == ".":
+                    valid_tokens.append(token)
+                    valid_tokens_last.append(token)
+                elif token == ",":
+                    valid_tokens.append(token)
+                elif token == "}":
+                    valid_tokens_last.append(token)
+                elif "," in token and token.count(",") == 1 and token[-1] == ",":
+                    try:
+                        check_token = float(token[:-1])
+                        if not isfinite(check_token):
+                            raise
+                        valid_tokens.append(token)
+                    except:
+                        pass
+                elif "}" in token and token.count("}") == 1 and token[-1] == "}":
+                    try:
+                        check_token = float(token[:-1])
+                        if not isfinite(check_token):
+                            raise
+                        valid_tokens_last.append(token)
+                    except:
+                        pass
+
+        return tuple[valid_tokens, valid_tokens_last]
+
+    # delete functions that are not valid anymore
+    def del_invalid_function(self, tokens_writed: list[int],
+                             function_ids: dict[str, list[int]]
+                             ) -> dict[str, list[int]]:
+
+        function_ids_copy = deepcopy(function_ids)
+
+        for i in range(len(tokens_writed)):
+            for key, value in function_ids.items():
+                if value[i] != tokens_writed[i]:
+                    try:
+                        del function_ids_copy[key]
+                    except:
+                        pass
+
+        print(function_ids_copy)
+
+        function_ids = deepcopy(function_ids_copy)
+        return function_ids
+
+    def valid_tokens_functions(self) -> dict[str, list[int]]:
+        functions_ids: dict[str, list[int]] = {}
 
         for function in self.functions_names:
-            list_id = self.small_llm.encode(function).tolist()[0]
-            for id in list_id:
-                print(f"token: '{self.small_llm.decode(id)}' ,ID: '{id}'")
-            print(self.get_parameters(function))
+            functions_ids[function] = (self.small_llm.encode(
+                function).tolist()[0])
 
-            print("\n\n")
+        return functions_ids
 
     def constrained_decoding(self) -> str:
-        partiat_output = ""
+        final_output = "[\n"
+        prompts_output: list[str] = []
+
+        for prompt in self.tests_json_data:
+            prompt_output = f'\n  {{\n  "prompt": {prompt.prompt},\n  "name": '
+            #write the function name:
+            #llm choose the function
+            prompt_output += f',\n  "parameters": '
+            #write the parameters:
+            #llm choose the parameters
+            prompt_output += f'\n  }}'
+            print(prompt_output)
+
+            
+
+        final_output += "\n]"
+        return final_output

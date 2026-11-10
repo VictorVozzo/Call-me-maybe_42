@@ -6,7 +6,7 @@
 #   By: vivozzo- <vivozzo-@student.42porto.com>     +#+  +:+       +#+        #
 #                                                 +#+#+#+#+#+   +#+           #
 #   Created: 2026/11/04 17:09:30 by vivozzo-           #+#    #+#             #
-#   Updated: 2026/11/09 11:58:18 by vivozzo-          ###   ########.fr       #
+#   Updated: 2026/11/10 12:02:41 by vivozzo-          ###   ########.fr       #
 #                                                                             #
 # *************************************************************************** #
 
@@ -23,9 +23,9 @@ def main() -> None:
         parsing_data = parsing(argv)
         functions_json_data, tests_json_data, output_path = parsing_data
         prompt_list = prompt(functions_json_data, tests_json_data)
-        constrained_decoding = ConstrainedDecoding(functions_json_data, prompt_list)
-        constrained_decoding.tokens_numbers()
-        # print(constrained_decoding.vocab_file)
+        constrained_decoding = ConstrainedDecoding(functions_json_data,tests_json_data, prompt_list)
+        constrained_decoding.constrained_decoding()
+        # print(constrained_decoding.id_content_vocab)
     except Exception as e:
         print(f"Caught an error: \n{e}")
 

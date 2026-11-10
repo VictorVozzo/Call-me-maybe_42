@@ -40,8 +40,8 @@ def prompt(functions_json_data: Any, tests_json_data: Any) -> str:
     for test in list_tests_json_data:
         list_prompts.append(f"Write a function call json output as a \
 dictionaire, follow exactly the example:\n\
-\n{{\n'prompt': prompt_text,\n'name': function_name,\n\
-'parameters': {{first_parameter: parameter, \
+\n{{\n  'prompt': prompt_text,\n  'name': function_name,\n\
+  'parameters': {{first_parameter: parameter, \
 second_parameter: parameter, ...}}\n}} \n\n\
 Available functions: \n\n\
 {functions_def(functions_json_data)} \n\n\
