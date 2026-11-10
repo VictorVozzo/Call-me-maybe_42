@@ -120,6 +120,20 @@ class ConstrainedDecoding():
         function_ids = deepcopy(function_ids_copy)
         return function_ids
 
+
+    # att functions_json_data to each step of the prompts (NEED TO TEST)
+    def del_functions_json_data(function_ids: dict[str, list[int]],
+                                functions_json_data_prompt: list[
+                                    FunctionsDefinition]) -> None:
+
+        functions_json_data_copy = deepcopy(functions_json_data_prompt)
+
+        for function in functions_json_data_copy:
+            if function.name not in function_ids:
+                for fnc in functions_json_data_prompt:
+                    if fnc.name == function.name:
+                        functions_json_data_prompt.remove(fnc)
+
     def valid_tokens_functions(self) -> dict[str, list[int]]:
         functions_ids: dict[str, list[int]] = {}
 
@@ -129,21 +143,34 @@ class ConstrainedDecoding():
 
         return functions_ids
 
+    #write the functions with LLM
+    def write_function() -> str:
+        pass
+
+    #write the parameters with LLM
+    def write_parameters() -> str:
+        pass
+
     def constrained_decoding(self) -> str:
         final_output = "[\n"
         prompts_output: list[str] = []
 
-        for prompt in self.tests_json_data:
-            prompt_output = f'\n  {{\n  "prompt": {prompt.prompt},\n  "name": '
-            #write the function name:
-            #llm choose the function
-            prompt_output += f',\n  "parameters": '
-            #write the parameters:
-            #llm choose the parameters
-            prompt_output += f'\n  }}'
-            print(prompt_output)
+        print(self.functions_json_data)
+        index = 0
+        # for prompt in self.tests_json_data:
 
-            
+        #     partial_prompt = self.prompt_list[index]
+        #     prompt_output = f'\n  {{\n    "prompt": {prompt.prompt},\n    "name": '
+        #     # write the function name:
+        #     # llm choose the function
+        #     prompt_output += f',\n    "parameters": '
+        #     # write the parameters:
+        #     # llm choose the parameters
+        #     prompt_output += f'\n  }}'
+        #     # print(prompt_output)
+        #     index += 1
+        #     print(partial_prompt + "\n" + prompt_output)
+        #     print("\n\n")
 
         final_output += "\n]"
         return final_output
