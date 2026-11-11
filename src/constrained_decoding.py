@@ -1,17 +1,16 @@
-from math import isfinite
+from math import isfinite, inf
 import json
 from copy import deepcopy
 from .llm_sdk.llm_sdk import Small_LLM_Model
 from .get_data import FunctionsDefinition, FunctionCalling
+from .prompt import get_prompt
 
 
 class ConstrainedDecoding():
     def __init__(self, functions_json_data: list[FunctionsDefinition],
-                 tests_json_data: list[FunctionCalling],
-                 prompt_list: list[str]) -> None:
+                 tests_json_data: list[FunctionCalling]) -> None:
         self.functions_json_data = functions_json_data
         self.tests_json_data = tests_json_data
-        self.prompt_list = prompt_list
         self.small_llm = Small_LLM_Model()
         self.create_vocab_file()
         self.get_function_names()
@@ -48,8 +47,8 @@ class ConstrainedDecoding():
         return functions_parameters
 
     # receive the prompt and a list of allowed_ids, return the id with the biggest logit
-    def find_max_logit_text(self, prompt: str, list_allowed_ids: list[int]) -> int:
-        list_logits: dict[int, float] = []
+    def find_max_logit_id(self, prompt: str, list_allowed_ids: set[int]) -> int:
+        list_logits: dict[int, float] = {}
         full_list_logits: list[float] = (
             self.small_llm.get_logits_from_input_ids(
                 self.small_llm.encode(prompt).tolist()[0]))
@@ -59,7 +58,7 @@ class ConstrainedDecoding():
 
         max_logit = max(list_logits, key=list_logits.get)
 
-        return self.small_llm.decode(max_logit)
+        return max_logit
 
     # find valid tokens numbers, the last param includes }
     def valid_tokens_numbers(self) -> tuple[list[int], list[int]]:
@@ -115,14 +114,12 @@ class ConstrainedDecoding():
                     except:
                         pass
 
-        print(function_ids_copy)
+        new_function_ids = deepcopy(function_ids_copy)
+        return new_function_ids
 
-        function_ids = deepcopy(function_ids_copy)
-        return function_ids
+    # att functions_json_data to each step of the prompts
 
-
-    # att functions_json_data to each step of the prompts (NEED TO TEST)
-    def del_functions_json_data(function_ids: dict[str, list[int]],
+    def del_functions_json_data(self, function_ids: dict[str, list[int]],
                                 functions_json_data_prompt: list[
                                     FunctionsDefinition]) -> None:
 
@@ -143,34 +140,74 @@ class ConstrainedDecoding():
 
         return functions_ids
 
-    #write the functions with LLM
-    def write_function() -> str:
-        pass
+    # write the functions with LLM (return the prompt that will use in the write parameters)
+    def write_function(self, partial_prompt: str,
+                       prompt_output: str,
+                       function_ids: dict[str, list[int]],
+                       functions_json_data_prompt: list[
+                           FunctionsDefinition],
+                       user_prompt: str) -> str:
 
-    #write the parameters with LLM
-    def write_parameters() -> str:
+        new_function_ids = deepcopy(function_ids)
+        biggest_function = max(len(ids) for ids in new_function_ids.values())
+        writed_functions_id = []
+
+        i = 0
+        while i < biggest_function:
+            allowed_ids = set()
+            for id in new_function_ids.values():
+                allowed_ids.add(id[i])
+            if len(new_function_ids) > 1:
+                biggest_logit_id = self.find_max_logit_id(
+                    partial_prompt + prompt_output, allowed_ids)
+            else:
+                for bli in allowed_ids:
+                    biggest_logit_id = bli
+            prompt_output += self.small_llm.decode(biggest_logit_id)
+            writed_functions_id.append(biggest_logit_id)
+            if len(new_function_ids) > 1:
+                new_function_ids = self.del_invalid_function(
+                    writed_functions_id, new_function_ids)
+                self.del_functions_json_data(
+                    new_function_ids, functions_json_data_prompt)
+                partial_prompt = get_prompt(
+                    functions_json_data_prompt, user_prompt)
+            biggest_function = max(len(ids)
+                                   for ids in new_function_ids.values())
+            i += 1
+
+        return partial_prompt + prompt_output
+
+    # write the parameters with LLM
+    def write_parameters(self) -> str:
         pass
 
     def constrained_decoding(self) -> str:
         final_output = "[\n"
         prompts_output: list[str] = []
+        function_ids = self.valid_tokens_functions()
 
-        print(self.functions_json_data)
-        index = 0
-        # for prompt in self.tests_json_data:
-
-        #     partial_prompt = self.prompt_list[index]
-        #     prompt_output = f'\n  {{\n    "prompt": {prompt.prompt},\n    "name": '
-        #     # write the function name:
-        #     # llm choose the function
-        #     prompt_output += f',\n    "parameters": '
-        #     # write the parameters:
-        #     # llm choose the parameters
-        #     prompt_output += f'\n  }}'
-        #     # print(prompt_output)
-        #     index += 1
-        #     print(partial_prompt + "\n" + prompt_output)
-        #     print("\n\n")
+        print("\n\n")
+        for prompt in self.tests_json_data:
+            functions_json_data_prompt = deepcopy(self.functions_json_data)
+            # new_function_ids = self.del_invalid_function(
+            #     [8822, 2891], function_ids)
+            # self.del_functions_json_data(
+            #     new_function_ids, functions_json_data_prompt)
+            partial_prompt = get_prompt(functions_json_data_prompt, prompt)
+            prompt_output = f'\n  {{\n    "prompt": {prompt.prompt},\n    "name": '
+            # write the function name (llm choose the function):
+            prompt_output = self.write_function(partial_prompt,
+                                                prompt_output, function_ids,
+                                                functions_json_data_prompt,
+                                                prompt)
+            prompt_output += f',\n    "parameters": '
+            # write the parameters:
+            # llm choose the parameters
+            prompt_output += f'\n  }}'
+            # print(prompt_output)
+            print(prompt_output)
+            print("\n\n\n\n")
 
         final_output += "\n]"
         return final_output
