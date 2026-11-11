@@ -30,8 +30,8 @@ def get_prompt(functions_json_data: Any, prompt: str) -> str:
     prompt_text = (f"Write a function call json output as a \
 dictionaire, follow exactly the example:\n\
 \n{{\n  'prompt': prompt_text,\n  'name': function_name,\n\
-  'parameters': {{first_parameter: parameter, \
-second_parameter: parameter, ...}}\n}} \n\n\
+  'parameters': {{first_parameter: parameter_value, \
+second_parameter: parameter_value, ...}}\n}} \n\n\
 Available functions: \n\n\
 {functions_def(functions_json_data)} \n\n\
 The function must follow this prompt:\n\n\
