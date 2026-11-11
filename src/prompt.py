@@ -27,14 +27,14 @@ return type: {function.returns.type}. \n"
 # now prompt will receive each prompt and the functions_json_data att with the available functions
 def get_prompt(functions_json_data: Any, prompt: str) -> str:
 
-    prompt_text = (f"Write a function call json output as a \
-dictionaire, follow exactly the example:\n\
-\n{{\n  'prompt': prompt_text,\n  'name': function_name,\n\
-  'parameters': {{first_parameter: parameter_value, \
-second_parameter: parameter_value, ...}}\n}} \n\n\
+    prompt_text = (f"You are a function calling assistant, write a function call json output as a \
+dictionaire, example:\n\
+\n  {{\n    \"prompt\":   \"prompt_text\",\n    \"name\":   \"function_name\",\n\
+    \"parameters\":   {{\"first_parameter\": \"first_parameter_value\", \
+\"second_parameter\": \"second_parameter_value\"}}\n  }} \n\n\
 Available functions: \n\n\
 {functions_def(functions_json_data)} \n\n\
-The function must follow this prompt:\n\n\
-{prompt}")
+User request: \
+\"{prompt}\"")
 
     return prompt_text

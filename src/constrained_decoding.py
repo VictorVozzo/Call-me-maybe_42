@@ -15,7 +15,7 @@ class ConstrainedDecoding():
         self.create_vocab_file()
         self.get_function_names()
         self.valid_tokens_numbers: tuple[
-            list[int], list[int]] = self.get_valid_tokens_numbers()
+            list[int], list[int], list[int]] = self.get_valid_tokens_numbers()
         self.valid_tokens_boolean: tuple[
             list[int], list[int]] = self.get_valid_tokens_boolean()
         self.valid_tokens_string: list[int] = self.get_valid_tokens_string()
@@ -66,7 +66,8 @@ class ConstrainedDecoding():
         return max_logit
 
     # find valid tokens numbers, the last param includes '}' and the others ','
-    def get_valid_tokens_numbers(self) -> tuple[list[int], list[int]]:
+    def get_valid_tokens_numbers(self) -> tuple[list[int], list[int], list[int]]:
+        valid_minus_token: list[int] = []
         valid_tokens: list[int] = []
         valid_tokens_last: list[int] = []
 
@@ -78,7 +79,9 @@ class ConstrainedDecoding():
                 valid_tokens.append(id)
                 valid_tokens_last.append(id)
             except:
-                if token == "-" or token == ".":
+                if token == "-":
+                    valid_minus_token.append(id)
+                elif token == ".":
                     valid_tokens.append(id)
                     valid_tokens_last.append(id)
                 elif token == ",":
@@ -102,12 +105,12 @@ class ConstrainedDecoding():
                     except:
                         pass
 
-        return (valid_tokens, valid_tokens_last)
+        return (valid_tokens, valid_tokens_last, valid_minus_token)
 
     # valid boolean tokens(True or False), gonna check if the llm ended writing by the len of the list of ids - same idea as the functions
     def get_valid_tokens_boolean(self) -> tuple[list[int], list[int]]:
-        valid_tokens_true = self.small_llm.encode("True").tolist()[0]
-        valid_tokens_false = self.small_llm.encode("False").tolist()[0]
+        valid_tokens_true = self.small_llm.encode("true").tolist()[0]
+        valid_tokens_false = self.small_llm.encode("false").tolist()[0]
 
         return (valid_tokens_true, valid_tokens_false)
 
@@ -210,33 +213,82 @@ class ConstrainedDecoding():
         
         parameters = functions_json_data_prompt[0].parameters
 
-        valid_tokens_numbers, valid_tokens_numbers_last = self.valid_tokens_numbers
+        valid_tokens_numbers, valid_tokens_numbers_last, valid_minus_token = self.valid_tokens_numbers
+        
         valid_tokens_bool_true, valid_tokens_bool_false = self.valid_tokens_boolean
+        valid_tokens_bool = {"True": valid_tokens_bool_true, "False": valid_tokens_bool_false}
+        biggest_bool = max(len(ids) for ids in valid_tokens_bool.values())
 
         for parameter, value in parameters.items():
             if parameter != next(iter(parameters)):
                 prompt_output += " "
-            prompt_output += f"{parameter}: "
-        
+            prompt_output += f"\"{parameter}\": "
             if value.type == "number":
+
+                #id of the dot "." , need to count dots writed so far, if there is one, exclude from the valid_tokens list
+                dot_id = self.small_llm.encode(".").tolist()[0]
+                
                 if parameter != next(reversed(parameters)):
+                    if parameter == next(iter(parameters)):
+                        valid_tokens = valid_tokens_numbers + valid_minus_token
+                    else:
+                        valid_tokens = valid_tokens_numbers
                     while prompt_output[-1] != ",":
+                        if parameter == next(iter(parameters)):
+                            if prompt_output.split("{")[1].count(".") >= 1:
+                                valid_tokens.remove(dot_id)
+                        else:
+                            if prompt_output.split(",")[1].count(".") >= 1:
+                                valid_tokens.remove(dot_id)
+                        
                         biggest_logit_id = self.find_max_logit_id(
-                            partial_prompt + prompt_output, valid_tokens_numbers)
+                            partial_prompt + prompt_output, valid_tokens)
                         prompt_output += self.small_llm.decode(biggest_logit_id)
-                        print("\n\n")
-                        print(partial_prompt + prompt_output)
                 else:
+                    if parameter == next(iter(parameters)):
+                        valid_tokens = valid_tokens_numbers_last + valid_minus_token
+                    else:
+                        valid_tokens = valid_tokens_numbers_last
                     while prompt_output[-1] != "}":
+                        if parameter == next(iter(parameters)):
+                            if prompt_output.split("{")[1].count(".") >= 1:
+                                valid_tokens.remove(dot_id)
+                        else:
+                            if prompt_output.split(",")[1].count(".") >= 1:
+                                valid_tokens.remove(dot_id)
+                        
                         biggest_logit_id = self.find_max_logit_id(
-                            partial_prompt + prompt_output, valid_tokens_numbers_last)
+                            partial_prompt + prompt_output, valid_tokens)
                         prompt_output += self.small_llm.decode(biggest_logit_id)
-                        print("\n\n")
-                        print(partial_prompt + prompt_output)
             elif value.type == "boolean":
-                prompt_output += "BOOLEAN"
+                biggest_logit_id = self.find_max_logit_id(
+                    partial_prompt + prompt_output, {valid_tokens_bool_true[0], valid_tokens_bool_false[0]})
+                if biggest_logit_id == valid_tokens_bool_true[0]:
+                    for i in range(len(valid_tokens_bool_true)):
+                        prompt_output += self.small_llm.decode(valid_tokens_bool_true[i])
+                else:
+                    for j in range(len(valid_tokens_bool_false)):
+                        prompt_output += self.small_llm.decode(valid_tokens_bool_false[j])
+                if parameter != next(reversed(parameters)):
+                    prompt_output += ","
+                else:
+                    prompt_output += "}"
             else:
-                prompt_output += "STRING"
+                prompt_output += '"'
+
+                flag = True
+                while prompt_output[-1] != '"' or flag is True:
+                    biggest_logit_id = self.find_max_logit_id(
+                        partial_prompt + prompt_output, self.valid_tokens_string)
+                    prompt_output += self.small_llm.decode(biggest_logit_id)
+                    flag = False
+                    print("\n\n")
+                    print(partial_prompt + prompt_output)
+                
+                if parameter != next(reversed(parameters)):
+                    prompt_output += ","
+                else:
+                    prompt_output += "}"
 
         return prompt_output
 
@@ -248,14 +300,14 @@ class ConstrainedDecoding():
         print("\n\n")
         for prompt in self.tests_json_data:
             functions_json_data_prompt = deepcopy(self.functions_json_data)
-            partial_prompt = get_prompt(functions_json_data_prompt, prompt)
-            prompt_output = f'\n  {{\n    "prompt": {prompt.prompt},\n    "name": '
+            partial_prompt = get_prompt(functions_json_data_prompt, prompt.prompt)
+            prompt_output = f'\n  {{\n    "prompt": \"{prompt.prompt}\",\n    "name": \"'
             # write the function name (llm choose the function):
             partial_prompt, prompt_output = self.write_function(partial_prompt,
                                                                 prompt_output, function_ids,
                                                                 functions_json_data_prompt,
-                                                                prompt)
-            prompt_output += f',\n    "parameters": {{'
+                                                                prompt.prompt)
+            prompt_output += f'\",\n    "parameters": {{'
             # write the parameters(llm choose the parameters):
             prompt_output = self.write_parameters(partial_prompt, 
                                                   prompt_output, 
