@@ -120,7 +120,7 @@ class ConstrainedDecoding():
         for id, token in self.id_content_vocab.items():
             if self.small_llm.decode([id]) == "":
                 continue
-            elif token.count('"') == 1 and token[-1] == '"':
+            elif token.count('"') == 1 and (token[-1] == '"' or (token[-2] == '"' and token[-1] == "}") or (token[-2] == '"' and token[-1] == ",")):
                 valid_tokens.append(id)
             elif token.count('"') == 0:
                 valid_tokens.append(id)
@@ -227,7 +227,7 @@ class ConstrainedDecoding():
             if value.type == "number":
 
                 #id of the dot "." , need to count dots writed so far, if there is one, exclude from the valid_tokens list
-                dot_id = self.small_llm.encode(".").tolist()[0]
+                dot_id = self.small_llm.encode(".").tolist()[0][0]
                 
                 if parameter != next(reversed(parameters)):
                     if parameter == next(iter(parameters)):
@@ -277,19 +277,32 @@ class ConstrainedDecoding():
             else:
                 prompt_output += '"'
 
-                flag = True
-                while prompt_output[-1] != '"' or flag is True:
-                    biggest_logit_id = self.find_max_logit_id(
-                        partial_prompt + prompt_output, self.valid_tokens_string)
-                    prompt_output += self.small_llm.decode([biggest_logit_id])
-                    flag = False
-                    print("\n\n")
-                    print(partial_prompt + prompt_output)
-                
                 if parameter != next(reversed(parameters)):
-                    prompt_output += ","
+                    while True:
+                        biggest_logit_id = self.find_max_logit_id(
+                            partial_prompt + prompt_output, self.valid_tokens_string)
+                        choosed_token = self.small_llm.decode([biggest_logit_id])
+                        prompt_output += choosed_token
+                        if choosed_token[-1] == '"' or (choosed_token[-1] == "," and choosed_token[-2] == '"'):
+                            break
+                        # print("\n\n")
+                        # print(partial_prompt + prompt_output)
+                    
+                    if prompt_output[-1] != ",":
+                        prompt_output += ","
                 else:
-                    prompt_output += "}"
+                    while True:
+                        biggest_logit_id = self.find_max_logit_id(
+                            partial_prompt + prompt_output, self.valid_tokens_string)
+                        choosed_token = self.small_llm.decode([biggest_logit_id])
+                        prompt_output += choosed_token
+                        if choosed_token[-1] == '"' or (choosed_token[-1] == "}" and choosed_token[-2] == '"'):
+                            break
+                        # print("\n\n")
+                        # print(partial_prompt + prompt_output)
+            
+                    if prompt_output[-1] != "}":
+                        prompt_output += "}"
 
         return prompt_output
 

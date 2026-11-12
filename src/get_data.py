@@ -96,9 +96,9 @@ def parsing(argv: list[str]) -> tuple[list[FunctionsDefinition], list[FunctionCa
                         "arguments in square brackets are optional")
 
     if len(argv) == 1:
-        functions_definition_path = "/data/input/functions_definition.json"
-        input_path = "/data/input/function_calling_tests.json"
-        output_path = "/data/output/function_calls.json"
+        functions_definition_path = "data/input/functions_definition.json"
+        input_path = "data/input/function_calling_tests.json"
+        output_path = "data/output/function_calls.json"
     else:
         functions_definition_path = argv[2]
         input_path = argv[4]
