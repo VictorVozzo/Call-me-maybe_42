@@ -1,6 +1,7 @@
 from math import isfinite
 import json
 from copy import deepcopy
+import os
 from .llm_sdk.llm_sdk import Small_LLM_Model
 from .get_data import FunctionsDefinition, FunctionCalling
 from .prompt import get_prompt
@@ -316,8 +317,26 @@ class ConstrainedDecoding():
 
         return prompt_output
 
-    def constrained_decoding(self) -> str:
-        final_output = "[\n"
+    def save_output(self, prompts_output: list[str]) -> None:
+        output = "["
+
+        for prompt in prompts_output: 
+            output += prompt
+            if prompt != prompts_output[-1]:
+                output += ","
+
+        output += "\n]"
+
+        output_path = "data/output/function_calling_results.json"
+
+        if os.path.dirname(output_path) != "":
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        with open(output_path, "w") as f:
+            f.write(output)
+
+
+    def constrained_decoding(self) -> None:
         prompts_output: list[str] = []
         function_ids = self.valid_tokens_functions()
 
@@ -338,8 +357,8 @@ class ConstrainedDecoding():
                                                   prompt_output,
                                                   functions_json_data_prompt)
             prompt_output += f'\n  }}'
+            prompts_output.append(prompt_output)
             print(partial_prompt + prompt_output)
             print("\n\n\n\n")
 
-        final_output += "\n]"
-        return final_output
+        self.save_output(prompts_output)

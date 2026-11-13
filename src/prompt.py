@@ -28,7 +28,7 @@ return type: {function.returns.type}. \n"
 def get_prompt(functions_json_data: Any, prompt: str) -> str:
 
     prompt_text = (f"You are a precise function calling assistant. Pick the function that best matches \
-the user request. Do not solve the request. Respond or complete ONLY with a VALID raw JSON string.\nAvailable functions: \n\n\
+the user request. Do not solve the request. Respond or complete ONLY with a VALID raw JSON string.All numbers must be float.\nAvailable functions: \n\n\
 {functions_def(functions_json_data)} \n\n\
 Example:\n\
 \n  {{\n    \"prompt\":   \"prompt_text\",\n    \"name\":   \"function_name\",\n\
