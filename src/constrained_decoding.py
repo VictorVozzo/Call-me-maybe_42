@@ -1,6 +1,5 @@
-from math import isfinite, inf
+from math import isfinite
 import json
-import numpy as np
 from copy import deepcopy
 from .llm_sdk.llm_sdk import Small_LLM_Model
 from .get_data import FunctionsDefinition, FunctionCalling
