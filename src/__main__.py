@@ -13,8 +13,6 @@
 from sys import argv
 from .get_data import parsing
 from . constrained_decoding import ConstrainedDecoding
-from .llm_sdk.llm_sdk import Small_LLM_Model
-from numpy import argmax
 from time import time
 
 
