@@ -72,8 +72,12 @@ class ConstrainedDecoding():
         valid_minus_token: list[int] = []
         valid_tokens: list[int] = []
         valid_tokens_last: list[int] = []
-
+    
         for id, token in self.id_content_vocab.items():
+            flag_minus = False
+            flag_middle = False
+            flag_last = False
+            
             try:
                 check_token = float(token)
                 if not isfinite(check_token):
@@ -81,31 +85,63 @@ class ConstrainedDecoding():
                 valid_tokens.append(id)
                 valid_tokens_last.append(id)
             except:
-                if token == "-":
-                    valid_minus_token.append(id)
-                elif token == ".":
-                    valid_tokens.append(id)
-                    valid_tokens_last.append(id)
-                elif token == ",":
-                    valid_tokens.append(id)
-                elif token == "}":
-                    valid_tokens_last.append(id)
-                elif "," in token and token.count(",") == 1 and token[-1] == ",":
-                    try:
-                        check_token = float(token[:-1])
-                        if not isfinite(check_token):
-                            raise
+                if "-" in token and token.count("-") == 1 and token[0] == "-":
+                    if token == "-":
+                        valid_minus_token.append(id)
+                        continue
+                    token = token[1:]
+                    flag_minus = True
+                
+                if "," in token and token.count(",") == 1 and token[-1] == ",":
+                    if token == "," and not flag_minus:
                         valid_tokens.append(id)
-                    except:
-                        pass
+                        continue
+                    token = token[:-1]
+                    flag_middle = True
                 elif "}" in token and token.count("}") == 1 and token[-1] == "}":
-                    try:
-                        check_token = float(token[:-1])
-                        if not isfinite(check_token):
-                            raise
+                    if token == "}" and not flag_minus:
                         valid_tokens_last.append(id)
-                    except:
-                        pass
+                        continue
+                    token = token[:-1]
+                    flag_last = True
+
+                if token.count(".") == 1:
+                    token_split = token.split(".")
+                    if len(token_split) == 2:
+                        try:
+                            check_token = float(token_split[0])
+                            if not isfinite(check_token):
+                                raise
+                            check_token = float(token_split[1])
+                            if not isfinite(check_token):
+                                raise
+                            if flag_minus:
+                                valid_minus_token.append(id)
+                            valid_tokens.append(id)
+                            valid_tokens_last.append(id)
+                            continue
+                        except:
+                            pass
+                    else:
+                        if token[1] == ".":
+                            token = token[1:]
+                        else:
+                            token = token[:-1]
+                        flag_middle = True
+                        flag_last = True
+                
+                try:
+                    check_token = float(token)
+                    if not isfinite(check_token):
+                        raise
+                    if flag_minus:
+                        valid_minus_token.append(id)
+                    if flag_middle:
+                        valid_tokens.append(id)
+                    if flag_last:
+                        valid_tokens_last.append(id)
+                except:
+                    pass
 
         return (valid_tokens, valid_tokens_last, valid_minus_token)
 
@@ -296,8 +332,6 @@ class ConstrainedDecoding():
                         prompt_output += choosed_token
                         if choosed_token[-1] == '"' or (choosed_token[-1] == "," and choosed_token[-2] == '"'):
                             break
-                        # print("\n\n")
-                        # print(partial_prompt + prompt_output)
 
                     if prompt_output[-1] != ",":
                         prompt_output += ","
@@ -310,12 +344,10 @@ class ConstrainedDecoding():
                         prompt_output += choosed_token
                         if choosed_token[-1] == '"' or (choosed_token[-1] == "}" and choosed_token[-2] == '"'):
                             break
-                        # print("\n\n")
-                        # print(partial_prompt + prompt_output)
 
                     if prompt_output[-1] != "}":
                         prompt_output += "}"
-
+    
         return prompt_output
 
     def fix_invalid_json_escapes(self, json_string: str) -> str:
@@ -444,4 +476,3 @@ class ConstrainedDecoding():
             self.save_output(prompts_output)
             print("\n\n\n\n")
 
-        # self.save_output(prompts_output)

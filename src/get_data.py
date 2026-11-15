@@ -19,19 +19,19 @@ TV = TypeVar("TV", bound=BaseModel)
 
 
 class FunctionCalling(BaseModel):
-    model_config = ConfigDict(strict=True)
+    model_config = ConfigDict(strict=True, extra="forbid")
 
     prompt: str
 
 
 class ParameterType(BaseModel):
-    model_config = ConfigDict(strict=True)
+    model_config = ConfigDict(strict=True, extra="forbid")
 
     type: str
 
 
 class FunctionsDefinition(BaseModel):
-    model_config = ConfigDict(strict=True)
+    model_config = ConfigDict(strict=True, extra="forbid")
 
     name: str
     description: str
