@@ -24,7 +24,7 @@ def main() -> None:
         functions_json_data, tests_json_data, output_path = parsing_data
         
         constrained_decoding = ConstrainedDecoding(
-            functions_json_data, tests_json_data)
+            functions_json_data, tests_json_data, output_path)
         constrained_decoding.constrained_decoding()
         final_time = time()
         execution_time = final_time - initial_time

@@ -1,4 +1,5 @@
 
+import json
 from typing import Any
 from .get_data import ParameterType
 
@@ -26,6 +27,7 @@ return type: {function.returns.type}. \n"
 
 # now prompt will receive each prompt and the functions_json_data att with the available functions
 def get_prompt(functions_json_data: Any, prompt: str) -> str:
+
 
     prompt_text = (f"You are a precise function calling assistant. Pick the function that best matches \
 the user request. Do not solve the request. Respond or complete ONLY with a VALID raw JSON string.All numbers must be float.\nAvailable functions: \n\n\

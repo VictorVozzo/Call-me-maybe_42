@@ -9,9 +9,10 @@ from .prompt import get_prompt
 
 class ConstrainedDecoding():
     def __init__(self, functions_json_data: list[FunctionsDefinition],
-                 tests_json_data: list[FunctionCalling]) -> None:
+                 tests_json_data: list[FunctionCalling], output_path = str) -> None:
         self.functions_json_data = functions_json_data
         self.tests_json_data = tests_json_data
+        self.output_path = output_path
         self.small_llm = Small_LLM_Model()
         self.create_vocab_file()
         self.get_function_names()
@@ -317,24 +318,105 @@ class ConstrainedDecoding():
 
         return prompt_output
 
+    def fix_invalid_json_escapes(self, json_string: str) -> str:
+        result = []
+        valid_escapes = '"\\/bfnrt'
+        hex_digits = "0123456789abcdefABCDEF"
+
+        inside_string = False
+        i = 0
+
+        while i < len(json_string):
+            char = json_string[i]
+
+            if not inside_string:
+                result.append(char)
+
+                if char == '"':
+                    inside_string = True
+
+                i += 1
+                continue
+
+            if char == '"':
+                result.append(char)
+                inside_string = False
+                i += 1
+                continue
+
+            if char == "\\":
+                # Backslash at the end of the input
+                if i + 1 >= len(json_string):
+                    result.append("\\\\")
+                    i += 1
+                    continue
+
+                next_char = json_string[i + 1]
+
+                # Valid standard JSON escape
+                if next_char in valid_escapes:
+                    result.append(char + next_char)
+                    i += 2
+                    continue
+
+                # Valid Unicode escape: \uXXXX
+                if next_char == "u":
+                    unicode_digits = json_string[i + 2:i + 6]
+
+                    if (
+                        len(unicode_digits) == 4
+                        and all(c in hex_digits for c in unicode_digits)
+                    ):
+                        result.append(json_string[i:i + 6])
+                        i += 6
+                        continue
+
+                # Invalid escape: add an extra backslash
+                result.append("\\\\")
+                i += 1
+                continue
+
+            result.append(char)
+            i += 1
+
+        return "".join(result)
+
     def save_output(self, prompts_output: list[str]) -> None:
-        output = "["
 
-        for prompt in prompts_output: 
-            output += prompt
-            if prompt != prompts_output[-1]:
-                output += ","
+        def write_output(prompts_output: list[str]) -> str:
+            output = "["
 
-        output += "\n]"
+            for prompt in prompts_output: 
+                output += prompt
+                if prompt != prompts_output[-1]:
+                    output += ","
 
-        output_path = "data/output/function_calling_results.json"
+            output += "\n]"
 
-        if os.path.dirname(output_path) != "":
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            return output
 
-        with open(output_path, "w") as f:
-            f.write(output)
+        output = write_output(prompts_output)
 
+        if os.path.dirname("data/output/") != "":
+            os.makedirs(os.path.dirname("data/output/"), exist_ok=True)
+
+        try:
+            json.loads(output)
+        except json.JSONDecodeError as e:
+            prompts_output[-1] = self.fix_invalid_json_escapes(prompts_output[-1])
+            output = write_output(prompts_output)
+            try:
+                json.loads(output)
+                with open(self.output_path, "w") as file:
+                    file.write(output)
+                return
+            except json.JSONDecodeError as e:
+                raise ValueError(
+                    f"Invalid JSON in {self.output_path}: {e}"
+                ) from e
+
+        with open(self.output_path, "w") as file:
+            file.write(output)
 
     def constrained_decoding(self) -> None:
         prompts_output: list[str] = []
@@ -359,6 +441,7 @@ class ConstrainedDecoding():
             prompt_output += f'\n  }}'
             prompts_output.append(prompt_output)
             print(partial_prompt + prompt_output)
+            self.save_output(prompts_output)
             print("\n\n\n\n")
 
-        self.save_output(prompts_output)
+        # self.save_output(prompts_output)
