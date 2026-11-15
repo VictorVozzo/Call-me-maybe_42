@@ -106,30 +106,26 @@ class ConstrainedDecoding():
                     flag_last = True
 
                 if token.count(".") == 1:
+                    if token == "." and not flag_minus and not flag_middle and not flag_last:
+                        valid_tokens.append(id)
+                        valid_tokens_last.append(id)
+                        continue
                     token_split = token.split(".")
-                    if len(token_split) == 2:
-                        try:
-                            check_token = float(token_split[0])
-                            if not isfinite(check_token):
-                                raise
-                            check_token = float(token_split[1])
-                            if not isfinite(check_token):
-                                raise
-                            if flag_minus:
-                                valid_minus_token.append(id)
-                            valid_tokens.append(id)
-                            valid_tokens_last.append(id)
-                            continue
-                        except:
-                            pass
-                    else:
-                        if token[1] == ".":
-                            token = token[1:]
-                        else:
-                            token = token[:-1]
-                        flag_middle = True
-                        flag_last = True
-                
+                    try:
+                        check_token = float(token_split[0])
+                        if not isfinite(check_token):
+                            raise
+                        check_token = float(token_split[1])
+                        if not isfinite(check_token):
+                            raise
+                        if flag_minus:
+                            valid_minus_token.append(id)
+                        valid_tokens.append(id)
+                        valid_tokens_last.append(id)
+                        continue
+                    except:
+                        pass
+
                 try:
                     check_token = float(token)
                     if not isfinite(check_token):
@@ -475,4 +471,3 @@ class ConstrainedDecoding():
             print(partial_prompt + prompt_output)
             self.save_output(prompts_output)
             print("\n\n\n\n")
-
