@@ -22,12 +22,13 @@ def main() -> None:
 
         parsing_data = parsing(argv)
         functions_json_data, tests_json_data, output_path = parsing_data
-        
+
         constrained_decoding = ConstrainedDecoding(
             functions_json_data, tests_json_data, output_path)
         constrained_decoding.constrained_decoding()
         final_time = time()
-        print(ConstrainedDecoding.print_time(initial_time, final_time, f"\n\nFinal execution time"))
+        print(ConstrainedDecoding.print_time(
+            initial_time, final_time, f"\n\nFinal execution time"))
     except Exception as e:
         print(f"Caught an error: \n{e}")
 

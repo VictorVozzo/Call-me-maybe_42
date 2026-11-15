@@ -23,3 +23,17 @@ package = false
 [tool.uv.sources]
 llm-sdk = { path = "./src/llm_sdk", editable = true }
 
+[tool.mypy]
+exclude = [
+    '(^|/)src/llm_sdk(/|$)',
+    '(^|/)\.venv/',
+    '(^|/)\.cache/'
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "src.llm_sdk",
+    "src.llm_sdk.*"
+]
+follow_imports = "skip"
+ignore_missing_imports = true
