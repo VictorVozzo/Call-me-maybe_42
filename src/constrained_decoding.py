@@ -1,6 +1,7 @@
 from math import isfinite
 import json
 from copy import deepcopy
+from time import time
 import os
 from .llm_sdk.llm_sdk import Small_LLM_Model
 from .get_data import FunctionsDefinition, FunctionCalling
@@ -9,7 +10,7 @@ from .prompt import get_prompt
 
 class ConstrainedDecoding():
     def __init__(self, functions_json_data: list[FunctionsDefinition],
-                 tests_json_data: list[FunctionCalling], output_path = str) -> None:
+                 tests_json_data: list[FunctionCalling], output_path=str) -> None:
         self.functions_json_data = functions_json_data
         self.tests_json_data = tests_json_data
         self.output_path = output_path
@@ -20,7 +21,8 @@ class ConstrainedDecoding():
             list[int], list[int], list[int]] = self.get_valid_tokens_numbers()
         self.valid_tokens_boolean: tuple[
             list[int], list[int]] = self.get_valid_tokens_boolean()
-        self.valid_tokens_string: tuple[list[int],list[int]] = self.get_valid_tokens_string()
+        self.valid_tokens_string: tuple[
+            list[int], list[int]] = self.get_valid_tokens_string()
 
     def create_vocab_file(self) -> None:
         vocab_file_path = self.small_llm.get_path_to_vocab_file()
@@ -72,12 +74,12 @@ class ConstrainedDecoding():
         valid_minus_token: list[int] = []
         valid_tokens: list[int] = []
         valid_tokens_last: list[int] = []
-    
+
         for id, token in self.id_content_vocab.items():
             flag_minus = False
             flag_middle = False
             flag_last = False
-            
+
             try:
                 check_token = float(token)
                 if not isfinite(check_token):
@@ -91,7 +93,7 @@ class ConstrainedDecoding():
                         continue
                     token = token[1:]
                     flag_minus = True
-                
+
                 if "," in token and token.count(",") == 1 and token[-1] == ",":
                     if token == "," and not flag_minus:
                         valid_tokens.append(id)
@@ -148,17 +150,17 @@ class ConstrainedDecoding():
 
         return (valid_tokens_true, valid_tokens_false)
 
-    def get_valid_tokens_string(self) -> tuple[list[int],list[int]]:
+    def get_valid_tokens_string(self) -> tuple[list[int], list[int]]:
         valid_tokens = []
         valid_tokens_last = []
 
         for id, token in self.id_content_vocab.items():
             if (token.count('"') == 1 and
-            (token[-1] == '"' or 
-             (token[-2] == '"' and token[-1] == ","))):
+                (token[-1] == '"' or
+                 (token[-2] == '"' and token[-1] == ","))):
                 valid_tokens.append(id)
             elif (token.count('"') == 1 and
-            token[-2] == '"' and token[-1] == "}"):
+                  token[-2] == '"' and token[-1] == "}"):
                 valid_tokens_last.append(id)
             elif token.count('"') == 0:
                 valid_tokens.append(id)
@@ -343,7 +345,7 @@ class ConstrainedDecoding():
 
                     if prompt_output[-1] != "}":
                         prompt_output += "}"
-    
+
         return prompt_output
 
     def fix_invalid_json_escapes(self, json_string: str) -> str:
@@ -414,7 +416,7 @@ class ConstrainedDecoding():
         def write_output(prompts_output: list[str]) -> str:
             output = "["
 
-            for prompt in prompts_output: 
+            for prompt in prompts_output:
                 output += prompt
                 if prompt != prompts_output[-1]:
                     output += ","
@@ -431,7 +433,8 @@ class ConstrainedDecoding():
         try:
             json.loads(output)
         except json.JSONDecodeError as e:
-            prompts_output[-1] = self.fix_invalid_json_escapes(prompts_output[-1])
+            prompts_output[-1] = self.fix_invalid_json_escapes(
+                prompts_output[-1])
             output = write_output(prompts_output)
             try:
                 json.loads(output)
@@ -446,12 +449,27 @@ class ConstrainedDecoding():
         with open(self.output_path, "w") as file:
             file.write(output)
 
+    @staticmethod
+    def print_time(initial_time: int, final_time: int, text: str) -> None:
+        execution_time = final_time - initial_time
+        exec_time_minutes = execution_time // 60
+        exec_time_seconds = execution_time % 60
+        
+        if exec_time_minutes == 0:
+            print(f"{text}: {exec_time_seconds:.2f} "
+                  f"{'second' if exec_time_seconds == 1 else 'seconds'}")
+        else:
+            print(f"{text}: {exec_time_minutes:.0f} "
+                  f"{'minute' if exec_time_minutes == 1 else 'minutes'} and "
+                  f"{exec_time_seconds:.2f} "
+                  f"{'second' if exec_time_seconds == 1 else 'seconds'}")
+
     def constrained_decoding(self) -> None:
         prompts_output: list[str] = []
         function_ids = self.valid_tokens_functions()
-
-        print("\n\n")
-        for prompt in self.tests_json_data:
+        print("\nCall me maybe - output generation:\n")
+        for index, prompt in enumerate(self.tests_json_data):
+            initial_time = time()
             functions_json_data_prompt = deepcopy(self.functions_json_data)
             partial_prompt = get_prompt(
                 functions_json_data_prompt, prompt.prompt)
@@ -467,7 +485,14 @@ class ConstrainedDecoding():
                                                   prompt_output,
                                                   functions_json_data_prompt)
             prompt_output += f'\n  }}'
+            final_time = time()
             prompts_output.append(prompt_output)
-            print(partial_prompt + prompt_output)
             self.save_output(prompts_output)
-            print("\n\n\n\n")
+            if index == 0:
+                print("=" * 130)
+            print(f"{index + 1}º prompt: {prompt.prompt}")
+            print(f"{prompt_output}\n")
+            self.print_time(initial_time, final_time, "Execution time")
+            print("=" * 130)
+
+        print(f"Final output saved in '{self.output_path}'")

@@ -27,13 +27,7 @@ def main() -> None:
             functions_json_data, tests_json_data, output_path)
         constrained_decoding.constrained_decoding()
         final_time = time()
-        execution_time = final_time - initial_time
-        exec_time_minutes = execution_time // 60
-        exec_time_seconds = execution_time % 60
-        print(f"\n\nExecution time: {exec_time_minutes:.0f} "
-                f"{'minute' if exec_time_minutes == 1 else 'minutes'} and "
-                f"{exec_time_seconds:.2f} "
-                f"{'second' if exec_time_seconds == 1 else 'seconds'}")
+        ConstrainedDecoding.print_time(initial_time, final_time, f"\n\nFinal execution time")
     except Exception as e:
         print(f"Caught an error: \n{e}")
 
