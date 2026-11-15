@@ -1,15 +1,3 @@
-# *************************************************************************** #
-#                                                                             #
-#                                                         :::      ::::::::   #
-#   get_data.py                                         :+:      :+:    :+:   #
-#                                                     +:+ +:+         +:+     #
-#   By: vivozzo- <vivozzo-@student.42porto.com>     +#+  +:+       +#+        #
-#                                                 +#+#+#+#+#+   +#+           #
-#   Created: 2026/11/04 16:38:08 by vivozzo-           #+#    #+#             #
-#   Updated: 2026/11/10 12:01:48 by vivozzo-          ###   ########.fr       #
-#                                                                             #
-# *************************************************************************** #
-
 import json
 from typing import TypeVar
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -79,7 +67,8 @@ def load_json(file_path: str, model_class: type[TV]) -> list[TV]:
     return list_model_class
 
 
-def parsing(argv: list[str]) -> tuple[list[FunctionsDefinition], list[FunctionCalling], str]:
+def parsing(argv: list[str]) -> tuple[list[FunctionsDefinition],
+                                      list[FunctionCalling], str]:
 
     if len(argv) != 1 and len(argv) != 7:
         raise Exception("Usage: v run python -m src "
