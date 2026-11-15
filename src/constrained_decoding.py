@@ -23,6 +23,7 @@ class ConstrainedDecoding():
             list[int], list[int]] = self.get_valid_tokens_boolean()
         self.valid_tokens_string: tuple[
             list[int], list[int]] = self.get_valid_tokens_string()
+        self.terminal_output = ""
 
     def create_vocab_file(self) -> None:
         vocab_file_path = self.small_llm.get_path_to_vocab_file()
@@ -232,7 +233,10 @@ class ConstrainedDecoding():
             else:
                 for bli in allowed_ids:
                     biggest_logit_id = bli
-            prompt_output += self.small_llm.decode([biggest_logit_id])
+
+            choosed_token = self.small_llm.decode([biggest_logit_id])        
+            prompt_output += choosed_token
+            print("\n"* 50 + self.terminal_output + prompt_output)
             writed_functions_id.append(biggest_logit_id)
             if len(new_function_ids) > 1:
                 new_function_ids = self.del_invalid_function(
@@ -284,8 +288,10 @@ class ConstrainedDecoding():
 
                         biggest_logit_id = self.find_max_logit_id(
                             partial_prompt + prompt_output, valid_tokens)
-                        prompt_output += self.small_llm.decode(
-                            [biggest_logit_id])
+                        choosed_token = self.small_llm.decode([biggest_logit_id])
+                        prompt_output += choosed_token
+                        
+                        print("\n"* 50 + self.terminal_output + prompt_output)
                 else:
                     if parameter == next(iter(parameters)):
                         valid_tokens = valid_tokens_numbers_last + valid_minus_token
@@ -301,23 +307,32 @@ class ConstrainedDecoding():
 
                         biggest_logit_id = self.find_max_logit_id(
                             partial_prompt + prompt_output, valid_tokens)
-                        prompt_output += self.small_llm.decode(
-                            [biggest_logit_id])
+                        choosed_token = self.small_llm.decode([biggest_logit_id])
+                        prompt_output += choosed_token
+                        
+                        print("\n"* 50 + self.terminal_output + prompt_output)
             elif value.type == "boolean":
                 biggest_logit_id = self.find_max_logit_id(
                     partial_prompt + prompt_output, {valid_tokens_bool_true[0], valid_tokens_bool_false[0]})
                 if biggest_logit_id == valid_tokens_bool_true[0]:
                     for i in range(len(valid_tokens_bool_true)):
-                        prompt_output += self.small_llm.decode(
+                        choosed_token += self.small_llm.decode(
                             [valid_tokens_bool_true[i]])
+            
+                        prompt_output += choosed_token
+                        print("\n"* 50 + self.terminal_output + prompt_output)
                 else:
                     for j in range(len(valid_tokens_bool_false)):
-                        prompt_output += self.small_llm.decode(
+                        choosed_token += self.small_llm.decode(
                             [valid_tokens_bool_false[j]])
+                        
+                        prompt_output += choosed_token
+                        print("\n"* 50 + self.terminal_output + prompt_output)
                 if parameter != next(reversed(parameters)):
-                    prompt_output += ","
+                    prompt_output += ","    
                 else:
                     prompt_output += "}"
+                print("\n" * 50 + self.terminal_output + prompt_output)
             else:
                 prompt_output += '"'
 
@@ -327,24 +342,30 @@ class ConstrainedDecoding():
                             partial_prompt + prompt_output, valid_tokens_string)
                         choosed_token = self.small_llm.decode(
                             [biggest_logit_id])
+                    
                         prompt_output += choosed_token
+                        print("\n"* 50 + self.terminal_output + prompt_output)
                         if choosed_token[-1] == '"' or (choosed_token[-1] == "," and choosed_token[-2] == '"'):
                             break
 
                     if prompt_output[-1] != ",":
                         prompt_output += ","
+                        print("\n"* 50 + self.terminal_output + prompt_output)
                 else:
                     while True:
                         biggest_logit_id = self.find_max_logit_id(
                             partial_prompt + prompt_output, valid_tokens_string_last)
                         choosed_token = self.small_llm.decode(
                             [biggest_logit_id])
+
                         prompt_output += choosed_token
+                        print("\n"* 50 + self.terminal_output + prompt_output)
                         if choosed_token[-1] == '"' or (choosed_token[-1] == "}" and choosed_token[-2] == '"'):
                             break
 
                     if prompt_output[-1] != "}":
                         prompt_output += "}"
+                        print("\n"* 50 + self.terminal_output + prompt_output)
 
         return prompt_output
 
@@ -450,49 +471,59 @@ class ConstrainedDecoding():
             file.write(output)
 
     @staticmethod
-    def print_time(initial_time: int, final_time: int, text: str) -> None:
+    def print_time(initial_time: int, final_time: int, text: str) -> str:
         execution_time = final_time - initial_time
         exec_time_minutes = execution_time // 60
         exec_time_seconds = execution_time % 60
         
         if exec_time_minutes == 0:
-            print(f"{text}: {exec_time_seconds:.2f} "
+            text = (f"\n{text}: {exec_time_seconds:.2f} "
                   f"{'second' if exec_time_seconds == 1 else 'seconds'}")
         else:
-            print(f"{text}: {exec_time_minutes:.0f} "
+            text = (f"\n{text}: {exec_time_minutes:.0f} "
                   f"{'minute' if exec_time_minutes == 1 else 'minutes'} and "
                   f"{exec_time_seconds:.2f} "
                   f"{'second' if exec_time_seconds == 1 else 'seconds'}")
 
+        return text
+
     def constrained_decoding(self) -> None:
         prompts_output: list[str] = []
         function_ids = self.valid_tokens_functions()
-        print("\nCall me maybe - output generation:\n")
+        self.terminal_output += "\nCall me maybe - output generation:\n"
         for index, prompt in enumerate(self.tests_json_data):
             initial_time = time()
             functions_json_data_prompt = deepcopy(self.functions_json_data)
             partial_prompt = get_prompt(
                 functions_json_data_prompt, prompt.prompt)
+            
             prompt_output = f'\n  {{\n    "prompt": {json.dumps(prompt.prompt, ensure_ascii=False)},\n    "name": \"'
+            if index == 0:
+                self.terminal_output += "\n" + "=" * 130
+            
+            self.terminal_output += f"\n{index + 1}º prompt: {prompt.prompt}"
+            print("\n" * 50 + self.terminal_output + prompt_output)
+
             # write the function name (llm choose the function):
             partial_prompt, prompt_output = self.write_function(partial_prompt,
                                                                 prompt_output, function_ids,
                                                                 functions_json_data_prompt,
                                                                 prompt.prompt)
             prompt_output += f'\",\n    "parameters": {{'
+            print("\n" * 50 + self.terminal_output + prompt_output)
             # write the parameters(llm choose the parameters):
             prompt_output = self.write_parameters(partial_prompt,
                                                   prompt_output,
                                                   functions_json_data_prompt)
             prompt_output += f'\n  }}'
+            print("\n" * 50 + self.terminal_output + prompt_output)
             final_time = time()
+            self.terminal_output += prompt_output
+            self.terminal_output += self.print_time(initial_time, final_time, "Execution time")
+            self.terminal_output += "\n" + "=" * 130
+            print("\n" * 50 + self.terminal_output)
+
             prompts_output.append(prompt_output)
             self.save_output(prompts_output)
-            if index == 0:
-                print("=" * 130)
-            print(f"{index + 1}º prompt: {prompt.prompt}")
-            print(f"{prompt_output}\n")
-            self.print_time(initial_time, final_time, "Execution time")
-            print("=" * 130)
 
-        print(f"Final output saved in '{self.output_path}'")
+        print(f"\nFinal output saved in '{self.output_path}'")

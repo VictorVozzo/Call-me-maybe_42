@@ -27,7 +27,7 @@ def main() -> None:
             functions_json_data, tests_json_data, output_path)
         constrained_decoding.constrained_decoding()
         final_time = time()
-        ConstrainedDecoding.print_time(initial_time, final_time, f"\n\nFinal execution time")
+        print(ConstrainedDecoding.print_time(initial_time, final_time, f"\n\nFinal execution time"))
     except Exception as e:
         print(f"Caught an error: \n{e}")
 
