@@ -6,7 +6,7 @@
 #   By: vivozzo- <vivozzo-@student.42porto.com>     +#+  +:+       +#+        #
 #                                                 +#+#+#+#+#+   +#+           #
 #   Created: 2026/11/16 17:08:16 by vivozzo-           #+#    #+#             #
-#   Updated: 2026/11/16 19:10:47 by vivozzo-          ###   ########.fr       #
+#   Updated: 2026/11/16 22:19:46 by vivozzo-          ###   ########.fr       #
 #                                                                             #
 # *************************************************************************** #
 
@@ -286,7 +286,7 @@ class ConstrainedDecoding():
 
         for i in range(len(tokens_writed)):
             for key, value in function_ids.items():
-                if value[i] != tokens_writed[i]:
+                if i >= len(value) or value[i] != tokens_writed[i]:
                     function_ids_copy.pop(key, None)
 
         new_function_ids = deepcopy(function_ids_copy)
@@ -310,9 +310,7 @@ class ConstrainedDecoding():
 
         for function in functions_json_data_copy:
             if function.name not in function_ids:
-                for fnc in functions_json_data_prompt:
-                    if fnc.name == function.name:
-                        functions_json_data_prompt.remove(fnc)
+                functions_json_data_prompt.remove(function)
 
     def valid_tokens_functions(self) -> dict[str, list[int]]:
         """Encode every function name into token ids.
@@ -358,11 +356,19 @@ class ConstrainedDecoding():
         biggest_function = max(len(ids) for ids in new_function_ids.values())
         writed_functions_id = []
 
+        id_quote = self.small_llm.encode('"').tolist()[0][0]
+        id_quote_comma = self.small_llm.encode('",').tolist()[0][0]
+
         i = 0
         while i < biggest_function:
             allowed_ids = set()
             for id in new_function_ids.values():
-                allowed_ids.add(id[i])
+                if len(id) == i:
+                    allowed_ids.add(id_quote)
+                    allowed_ids.add(id_quote_comma)
+                else:
+                    allowed_ids.add(id[i])
+
             if len(new_function_ids) > 1:
                 biggest_logit_id = self.find_max_logit_id(
                     partial_prompt + prompt_output, allowed_ids)
@@ -374,6 +380,23 @@ class ConstrainedDecoding():
             prompt_output += choosed_token
             print("\n" * 50 + self.terminal_output + prompt_output)
             writed_functions_id.append(biggest_logit_id)
+
+            if prompt_output[-2:] == '",' or prompt_output[-1] == '"':
+                if prompt_output[-2:] == '",':
+                    prompt_output = prompt_output[:-2]
+                else:
+                    prompt_output = prompt_output[:-1]
+
+                function_name = prompt_output.split('"')[-1].strip()
+
+                functions_json_data_copy = deepcopy(functions_json_data_prompt)
+                for function in functions_json_data_copy:
+                    if function_name != function.name:
+                        functions_json_data_prompt.remove(function)
+                partial_prompt = get_prompt(
+                    functions_json_data_prompt, user_prompt)
+                break
+
             if len(new_function_ids) > 1:
                 new_function_ids = self.del_invalid_function(
                     writed_functions_id, new_function_ids)
@@ -383,6 +406,7 @@ class ConstrainedDecoding():
                     functions_json_data_prompt, user_prompt)
                 biggest_function = max(len(ids)
                                        for ids in new_function_ids.values())
+
             i += 1
 
         return (partial_prompt, prompt_output)
@@ -435,7 +459,7 @@ class ConstrainedDecoding():
                         valid_tokens = valid_tokens_numbers.copy()
                     removed_points = False
                     parameter_output = ""
-                    for _ in range(32):  # 32 tokens max
+                    for i in range(32):  # 32 tokens max
                         if (not removed_points and
                             (value.type == "integer" or
                              prompt_output.split(":")[-1].count(".") >= 1)):
@@ -457,6 +481,8 @@ class ConstrainedDecoding():
                                 prompt_output = prompt_output[:-1]
                                 prompt_output += ".0,"
                             break
+                    if i == 31 and prompt_output[-1] != ",":
+                        prompt_output += ","
                 else:
                     if parameter == next(iter(parameters)):
                         valid_tokens = (valid_tokens_numbers_last.copy() +
@@ -465,7 +491,7 @@ class ConstrainedDecoding():
                         valid_tokens = valid_tokens_numbers_last.copy()
                     removed_points = False
                     parameter_output = ""
-                    for _ in range(32):
+                    for i in range(32):
                         if (not removed_points and
                             (value.type == "integer" or
                              prompt_output.split(":")[-1].count(".") >= 1)):
@@ -487,6 +513,8 @@ class ConstrainedDecoding():
                                 prompt_output = prompt_output[:-1]
                                 prompt_output += ".0}"
                             break
+                    if i == 31 and prompt_output[-1] != "}":
+                        prompt_output += "}"
 
             elif value.type == "boolean":
                 biggest_logit_id = self.find_max_logit_id(
@@ -524,7 +552,7 @@ class ConstrainedDecoding():
                     parameter_output = ""
                     valid_tokens = valid_tokens_string.copy()
 
-                    for _ in range(64):  # 64 tokens max
+                    for i in range(64):  # 64 tokens max
                         biggest_logit_id = self.find_max_logit_id(
                             partial_prompt + prompt_output,
                             set(valid_tokens))
@@ -544,6 +572,9 @@ class ConstrainedDecoding():
                              prompt_output[-2] == '"')):
                             break
 
+                    if i == 63 and prompt_output[-1] != '"':
+                        prompt_output += '"'
+
                     if prompt_output[-1] != ",":
                         prompt_output += ","
                         print("\n" * 50 + self.terminal_output + prompt_output)
@@ -551,7 +582,7 @@ class ConstrainedDecoding():
                     parameter_output = ""
                     valid_tokens = valid_tokens_string_last.copy()
 
-                    for _ in range(64):
+                    for i in range(64):
                         biggest_logit_id = self.find_max_logit_id(
                             partial_prompt + prompt_output,
                             set(valid_tokens))
@@ -570,6 +601,9 @@ class ConstrainedDecoding():
                             (prompt_output[-1] == "}" and
                              prompt_output[-2] == '"')):
                             break
+
+                    if i == 63 and prompt_output[-1] != '"':
+                        prompt_output += '"'
 
                     if prompt_output[-1] != "}":
                         prompt_output += "}"
@@ -788,6 +822,7 @@ class ConstrainedDecoding():
             self.terminal_output += prompt_output
             self.terminal_output += self.print_time(
                 initial_time, final_time, "Execution time")
+            print(partial_prompt)
             self.terminal_output += "\n" + "=" * 130
             print("\n" * 50 + self.terminal_output)
 
