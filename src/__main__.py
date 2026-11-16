@@ -6,7 +6,7 @@
 #   By: vivozzo- <vivozzo-@student.42porto.com>     +#+  +:+       +#+        #
 #                                                 +#+#+#+#+#+   +#+           #
 #   Created: 2026/11/16 17:08:07 by vivozzo-           #+#    #+#             #
-#   Updated: 2026/11/16 17:08:10 by vivozzo-          ###   ########.fr       #
+#   Updated: 2026/11/16 18:35:47 by vivozzo-          ###   ########.fr       #
 #                                                                             #
 # *************************************************************************** #
 
@@ -18,6 +18,16 @@ from time import time
 
 
 def main() -> None:
+    """Run the whole pipeline: parse arguments, decode and save the output.
+
+    Reads the command line arguments, loads and validates the input files,
+    runs the constrained decoding over every prompt and prints the total
+    execution time. Any exception is caught and reported as a clear message
+    instead of crashing the program.
+
+    Returns:
+        None
+    """
     try:
         initial_time = time()
 

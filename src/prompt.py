@@ -6,7 +6,7 @@
 #   By: vivozzo- <vivozzo-@student.42porto.com>     +#+  +:+       +#+        #
 #                                                 +#+#+#+#+#+   +#+           #
 #   Created: 2026/11/16 17:08:29 by vivozzo-           #+#    #+#             #
-#   Updated: 2026/11/16 17:08:31 by vivozzo-          ###   ########.fr       #
+#   Updated: 2026/11/16 17:25:31 by vivozzo-          ###   ########.fr       #
 #                                                                             #
 # *************************************************************************** #
 
@@ -17,6 +17,15 @@ from .get_data import ParameterType
 
 def functions_def_parameters(functions_parameter: dict[
         str, ParameterType]) -> str:
+    """Format the parameters of a function as a readable string.
+
+    Args:
+        functions_parameter: Mapping of parameter name to its ParameterType.
+
+    Returns:
+        A string such as ``"a: number, b: number"`` (no trailing comma).
+    """
+
     text = ""
 
     for key, value in functions_parameter.items():
@@ -26,6 +35,16 @@ def functions_def_parameters(functions_parameter: dict[
 
 
 def functions_def(functions_json_data: Any) -> str:
+    """Describe every available function in plain text for the prompt.
+
+    Args:
+        functions_json_data: Iterable of FunctionsDefinition objects.
+
+    Returns:
+        One line per function with its name, description, parameters and
+        return type.
+    """
+
     text = ""
 
     for function in functions_json_data:
@@ -37,9 +56,21 @@ return type: {function.returns.type}. \n"
     return text
 
 
-# now prompt will receive each prompt and the
-# functions_json_data att with the available functions
 def get_prompt(functions_json_data: Any, prompt: str) -> str:
+    """Build the full prompt that is sent to the LLM for a single request.
+
+    The prompt instructs the model to pick the best matching function
+    (without solving the request), lists the available functions, shows
+    an example of the expected JSON and appends the user request.
+
+    Args:
+        functions_json_data: Iterable of FunctionsDefinition objects that
+            are still available for the current request.
+        prompt: The natural language request written by the user.
+
+    Returns:
+        The complete prompt text.
+    """
 
     prompt_text = (f"You are a precise function calling assistant.\
 Pick the function that best matches the user request.\

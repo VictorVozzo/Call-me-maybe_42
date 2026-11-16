@@ -6,7 +6,7 @@
 #   By: vivozzo- <vivozzo-@student.42porto.com>     +#+  +:+       +#+        #
 #                                                 +#+#+#+#+#+   +#+           #
 #   Created: 2026/11/16 17:08:16 by vivozzo-           #+#    #+#             #
-#   Updated: 2026/11/16 17:08:17 by vivozzo-          ###   ########.fr       #
+#   Updated: 2026/11/16 18:35:30 by vivozzo-          ###   ########.fr       #
 #                                                                             #
 # *************************************************************************** #
 
@@ -22,9 +22,43 @@ from .prompt import get_prompt
 
 
 class ConstrainedDecoding():
+    """Generate schema-compliant function calls with constrained decoding.
+
+    At every generation step the LLM logits are restricted to the tokens
+    that keep the output valid (a known function name, a number, a boolean
+    or a string), so the produced JSON is always parseable and follows the
+    schema of the chosen function.
+
+    Attributes:
+        functions_json_data: Available function definitions.
+        tests_json_data: Prompts to convert into function calls.
+        output_path: Path of the JSON file that will be written.
+        small_llm: Wrapper used to talk to the LLM.
+        id_content_vocab: Mapping of token id to token text.
+        functions_names: Names of all available functions.
+        valid_tokens_numbers: Four lists of token ids: tokens allowed
+            before a ``,``, tokens allowed before a ``}``, negative
+            number tokens and tokens that contain a decimal point.
+        valid_tokens_boolean: Token ids of ``true`` and ``false``.
+        valid_tokens_string: Token ids allowed inside a string, and the
+            ones allowed for the last string parameter.
+        terminal_output: Text accumulated for the live terminal display.
+    """
+
     def __init__(self, functions_json_data: list[FunctionsDefinition],
                  tests_json_data: list[FunctionCalling],
                  output_path: str) -> None:
+        """Initialize the model, the vocabulary and the valid token sets.
+
+        Args:
+            functions_json_data: Available function definitions.
+            tests_json_data: Prompts to convert into function calls.
+            output_path: Path of the output JSON file.
+
+        Raises:
+            FileNotFoundError: If the vocabulary file cannot be found.
+        """
+
         self.functions_json_data = functions_json_data
         self.tests_json_data = tests_json_data
         self.output_path = output_path
@@ -41,6 +75,15 @@ class ConstrainedDecoding():
         self.terminal_output = ""
 
     def create_vocab_file(self) -> None:
+        """Load the vocabulary file and build the id to token mapping.
+
+        Fills ``self.id_content_vocab`` by inverting the token to id mapping
+        stored in the vocabulary JSON file.
+
+        Raises:
+            FileNotFoundError: If the vocabulary file does not exist.
+        """
+
         vocab_file_path = self.small_llm.get_path_to_vocab_file()
         try:
             with open(vocab_file_path, "r") as file:
@@ -56,15 +99,24 @@ class ConstrainedDecoding():
             self.id_content_vocab[value] = key
 
     def get_function_names(self) -> None:
+        """Store the available function names in ``functions_names``."""
+
         self.functions_names: list[str] = []
 
         for function in self.functions_json_data:
             self.functions_names.append(function.name)
 
-    # receive the prompt and a list of allowed_ids,
-    # return the id with the biggest logit
     def find_max_logit_id(self, prompt: str,
                           list_allowed_ids: set[int]) -> int:
+        """Return the allowed token with the highest logit.
+
+        Args:
+            prompt: Text given to the LLM (prompt plus text generated so far).
+            list_allowed_ids: Token ids that may be selected.
+
+        Returns:
+            The id, among the allowed ones, with the biggest logit.
+        """
 
         full_list_logits: list[float] = (
             self.small_llm.get_logits_from_input_ids(
@@ -75,7 +127,6 @@ class ConstrainedDecoding():
             key=lambda token_id: full_list_logits[token_id]
         )
 
-    # find valid tokens numbers, the last param includes '}' and the others ','
     def get_valid_tokens_numbers(self) -> tuple[list[int],
                                                 list[int], list[int],
                                                 list[int]]:
@@ -83,6 +134,19 @@ class ConstrainedDecoding():
         valid_tokens: list[int] = []
         valid_tokens_last: list[int] = []
         point_tokens: list[int] = []
+        """Classify vocabulary tokens that can be part of a JSON number.
+
+        Tokens are checked together with an optional leading ``-`` and an
+        optional trailing ``,`` or ``}`` (which end the current parameter).
+
+        Returns:
+            A tuple of four lists of token ids:
+            ``(valid_tokens, valid_tokens_last, valid_minus_token,
+            point_tokens)``. The first one is used for parameters followed
+            by ``,``, the second for the last parameter (followed by ``}``),
+            the third holds negative number tokens and the last one holds
+            tokens that contain a decimal point.
+        """
 
         for id, token in self.id_content_vocab.items():
             flag_minus = False
@@ -162,16 +226,31 @@ class ConstrainedDecoding():
         return (valid_tokens, valid_tokens_last,
                 valid_minus_token, point_tokens)
 
-    # valid boolean tokens(True or False), gonna check if
-    # the llm ended writing by the len of the list of ids -
-    # same idea as the functions
     def get_valid_tokens_boolean(self) -> tuple[list[int], list[int]]:
+        """Encode the boolean literals ``true`` and ``false``.
+
+        Returns:
+            A tuple ``(true_ids, false_ids)`` with the token ids of each
+            literal.
+        """
+
         valid_tokens_true = self.small_llm.encode("true").tolist()[0]
         valid_tokens_false = self.small_llm.encode("false").tolist()[0]
 
         return (valid_tokens_true, valid_tokens_false)
 
     def get_valid_tokens_string(self) -> tuple[list[int], list[int]]:
+        """Classify vocabulary tokens that can be part of a JSON string.
+
+        Tokens without a double quote are always valid. Tokens with a single
+        closing quote are valid only if followed by nothing or ``,`` (middle
+        parameters) or ``}`` (last parameter).
+
+        Returns:
+            A tuple ``(valid_tokens, valid_tokens_last)`` with the token ids
+            for middle parameters and for the last parameter.
+        """
+
         valid_tokens = []
         valid_tokens_last = []
 
@@ -189,10 +268,19 @@ class ConstrainedDecoding():
 
         return (valid_tokens, valid_tokens_last)
 
-    # delete functions that are not valid anymore
     def del_invalid_function(self, tokens_writed: list[int],
                              function_ids: dict[str, list[int]]
                              ) -> dict[str, list[int]]:
+        """Remove the functions that no longer match the tokens written so far.
+
+        Args:
+            tokens_writed: Token ids already generated for the function name.
+            function_ids: Mapping of function name to its token ids.
+
+        Returns:
+            A new mapping with only the functions whose first tokens are
+            equal to ``tokens_writed``.
+        """
 
         function_ids_copy = deepcopy(function_ids)
 
@@ -204,11 +292,19 @@ class ConstrainedDecoding():
         new_function_ids = deepcopy(function_ids_copy)
         return new_function_ids
 
-    # att functions_json_data to each step of the prompts
-
     def del_functions_json_data(self, function_ids: dict[str, list[int]],
                                 functions_json_data_prompt: list[
                                     FunctionsDefinition]) -> None:
+        """Remove from the list the functions that are no longer candidates.
+
+        The list is modified in place so the prompt only describes the
+        functions that can still be chosen.
+
+        Args:
+            function_ids: Mapping of the remaining candidate function names.
+            functions_json_data_prompt: Function definitions of the current
+                prompt (modified in place).
+        """
 
         functions_json_data_copy = deepcopy(functions_json_data_prompt)
 
@@ -219,6 +315,12 @@ class ConstrainedDecoding():
                         functions_json_data_prompt.remove(fnc)
 
     def valid_tokens_functions(self) -> dict[str, list[int]]:
+        """Encode every function name into token ids.
+
+        Returns:
+            A mapping of function name to its list of token ids.
+        """
+
         functions_ids: dict[str, list[int]] = {}
 
         for function in self.functions_names:
@@ -227,14 +329,30 @@ class ConstrainedDecoding():
 
         return functions_ids
 
-    # write the functions with LLM
-    # (return the prompt that will use in the write parameters)
     def write_function(self, partial_prompt: str,
                        prompt_output: str,
                        function_ids: dict[str, list[int]],
                        functions_json_data_prompt: list[
                            FunctionsDefinition],
                        user_prompt: str) -> tuple[str, str]:
+        """Let the LLM choose the function name, token by token.
+
+        At each step only tokens that continue one of the remaining
+        function names are allowed. When a single candidate remains, its
+        remaining tokens are written without consulting the LLM.
+
+        Args:
+            partial_prompt: Prompt sent to the LLM.
+            prompt_output: JSON text generated so far.
+            function_ids: Mapping of function name to its token ids.
+            functions_json_data_prompt: Function definitions of the current
+                prompt (reduced in place while candidates are discarded).
+            user_prompt: Original user request, used to rebuild the prompt.
+
+        Returns:
+            A tuple ``(partial_prompt, prompt_output)`` with the updated
+            prompt and the JSON text including the chosen function name.
+        """
 
         new_function_ids = deepcopy(function_ids)
         biggest_function = max(len(ids) for ids in new_function_ids.values())
@@ -269,11 +387,26 @@ class ConstrainedDecoding():
 
         return (partial_prompt, prompt_output)
 
-    # write the parameters with LLM
     def write_parameters(self, partial_prompt: str,
                          prompt_output: str,
                          functions_json_data_prompt: list[
                              FunctionsDefinition]) -> str:
+        """Let the LLM write the parameters of the chosen function.
+
+        Numbers, booleans and strings are generated with different sets of
+        allowed tokens, so every value respects the type declared in the
+        function definition. Numbers that are not integers always get a
+        decimal part (e.g. ``2`` becomes ``2.0``).
+
+        Args:
+            partial_prompt: Prompt sent to the LLM.
+            prompt_output: JSON text generated so far.
+            functions_json_data_prompt: Function definitions left after the
+                function choice; the first item is the chosen function.
+
+        Returns:
+            The JSON text with all parameters written, ending with ``}``.
+        """
 
         parameters = functions_json_data_prompt[0].parameters
 
@@ -437,6 +570,7 @@ class ConstrainedDecoding():
                         prompt_output += choosed_token
                         parameter_output += choosed_token
                         print("\n" * 50 + self.terminal_output + prompt_output)
+
                         if (prompt_output[-1] == '"' or
                             (prompt_output[-1] == "}" and
                              prompt_output[-2] == '"')):
@@ -449,6 +583,18 @@ class ConstrainedDecoding():
         return prompt_output
 
     def fix_invalid_json_escapes(self, json_string: str) -> str:
+        """Escape the backslashes that make a JSON string invalid.
+
+        Walks through the text and, inside strings, doubles every backslash
+        that is not part of a valid JSON escape sequence.
+
+        Args:
+            json_string: JSON text that may contain invalid escapes.
+
+        Returns:
+            The JSON text with the invalid escapes fixed.
+        """
+
         result = []
         valid_escapes = '"\\/bfnrt'
         hex_digits = "0123456789abcdefABCDEF"
@@ -512,8 +658,29 @@ class ConstrainedDecoding():
         return "".join(result)
 
     def save_output(self, prompts_output: list[str]) -> None:
+        """Validate the generated results and write them to the output file.
+
+        If the JSON is invalid, the invalid escapes of the last result are
+        fixed and the validation is tried again. The output directory is
+        created if needed.
+
+        Args:
+            prompts_output: JSON objects (as text) generated so far.
+
+        Raises:
+            ValueError: If the JSON is still invalid after the fix.
+        """
 
         def write_output(prompts_output: list[str]) -> str:
+            """Join the generated objects into a JSON array text.
+
+            Args:
+                prompts_output: JSON objects (as text) to join.
+
+            Returns:
+                The JSON array as a string.
+            """
+
             output = "["
 
             for prompt in prompts_output:
@@ -551,6 +718,18 @@ class ConstrainedDecoding():
 
     @staticmethod
     def print_time(initial_time: float, final_time: float, text: str) -> str:
+        """Format an elapsed time as a readable message.
+
+        Args:
+            initial_time: Start timestamp, in seconds.
+            final_time: End timestamp, in seconds.
+            text: Label placed before the elapsed time.
+
+        Returns:
+            A message such as "Label: 1 minute and 3.20 seconds", preceded by
+            a line break.
+        """
+
         execution_time = final_time - initial_time
         exec_time_minutes = execution_time // 60
         exec_time_seconds = execution_time % 60
@@ -567,6 +746,17 @@ class ConstrainedDecoding():
         return text
 
     def constrained_decoding(self) -> None:
+        """Process every prompt and save the generated function calls.
+
+        For each prompt the LLM first chooses the function name and then
+        the parameters, both under constrained decoding. The output file
+        is updated after every prompt and the progress is shown on the
+        terminal.
+
+        Raises:
+            ValueError: If the generated JSON is invalid.
+        """
+
         prompts_output: list[str] = []
         function_ids = self.valid_tokens_functions()
         self.terminal_output += "\nCall me maybe - output generation:\n"

@@ -6,7 +6,7 @@
 #   By: vivozzo- <vivozzo-@student.42porto.com>     +#+  +:+       +#+        #
 #                                                 +#+#+#+#+#+   +#+           #
 #   Created: 2026/11/16 17:08:24 by vivozzo-           #+#    #+#             #
-#   Updated: 2026/11/16 17:08:25 by vivozzo-          ###   ########.fr       #
+#   Updated: 2026/11/16 17:34:29 by vivozzo-          ###   ########.fr       #
 #                                                                             #
 # *************************************************************************** #
 
@@ -20,18 +20,40 @@ TV = TypeVar("TV", bound=BaseModel)
 
 
 class FunctionCalling(BaseModel):
+    """A natural language request to be converted into a function call.
+
+    Attributes:
+        prompt: The user request text.
+    """
+
     model_config = ConfigDict(strict=True, extra="forbid")
 
     prompt: str
 
 
 class ParameterType(BaseModel):
+    """Type description of a function parameter.
+
+    Attributes:
+        type: Type name as written in the definitions file
+            (e.g. ``"number"``, ``"string"``, ``"boolean"``).
+    """
+
     model_config = ConfigDict(strict=True, extra="forbid")
 
     type: str
 
 
 class FunctionsDefinition(BaseModel):
+    """Definition of a function that the LLM is allowed to call.
+
+    Attributes:
+        name: Function name.
+        description: Short description of what the function does.
+        parameters: Mapping of parameter name to its ParameterType.
+        returns: Return type of the function.
+    """
+
     model_config = ConfigDict(strict=True, extra="forbid")
 
     name: str
@@ -41,6 +63,22 @@ class FunctionsDefinition(BaseModel):
 
 
 def load_json(file_path: str, model_class: type[TV]) -> list[TV]:
+    """Load a JSON array file and validate each item with a pydantic model.
+
+    Args:
+        file_path: Path of the JSON file to read.
+        model_class: Pydantic model class used to validate every item.
+
+    Returns:
+        A list with one validated model instance per item of the array.
+
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        ValueError: If the content is not valid JSON, is not an array or
+            is an empty array.
+        Exception: If one or more items fail validation (all validation
+            errors are gathered in the message).
+    """
 
     try:
         with open(file_path, "r") as file:
@@ -82,6 +120,26 @@ def load_json(file_path: str, model_class: type[TV]) -> list[TV]:
 
 def parsing(argv: list[str]) -> tuple[list[FunctionsDefinition],
                                       list[FunctionCalling], str]:
+    """Parse the command line arguments and load the input files.
+
+    The program accepts either no arguments (default paths are used) or
+    all three options: ``--functions_definition``, ``--input`` and
+    ``--output``, in this order.
+
+    Args:
+        argv: The raw argument list (``sys.argv``), including the program
+            name at index 0.
+
+    Returns:
+        A tuple ``(functions, tests, output_path)`` with the validated
+        function definitions, the validated prompts and the output file
+        path.
+
+    Raises:
+        Exception: If the arguments do not follow the expected usage.
+        FileNotFoundError: If an input file is missing.
+        ValueError: If an input file is not a valid, non-empty JSON array.
+    """
 
     if len(argv) != 1 and len(argv) != 7:
         raise Exception("Usage: v run python -m src "
