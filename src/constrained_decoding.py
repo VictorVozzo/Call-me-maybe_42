@@ -19,7 +19,8 @@ class ConstrainedDecoding():
         self.create_vocab_file()
         self.get_function_names()
         self.valid_tokens_numbers: tuple[
-            list[int], list[int], list[int]] = self.get_valid_tokens_numbers()
+            list[int], list[int], list[int],
+            list[int]] = self.get_valid_tokens_numbers()
         self.valid_tokens_boolean: tuple[
             list[int], list[int]] = self.get_valid_tokens_boolean()
         self.valid_tokens_string: tuple[
@@ -63,10 +64,12 @@ class ConstrainedDecoding():
 
     # find valid tokens numbers, the last param includes '}' and the others ','
     def get_valid_tokens_numbers(self) -> tuple[list[int],
-                                                list[int], list[int]]:
+                                                list[int], list[int],
+                                                list[int]]:
         valid_minus_token: list[int] = []
         valid_tokens: list[int] = []
         valid_tokens_last: list[int] = []
+        point_tokens: list[int] = []
 
         for id, token in self.id_content_vocab.items():
             flag_minus = False
@@ -77,6 +80,8 @@ class ConstrainedDecoding():
                 check_token = float(token)
                 if not isfinite(check_token):
                     raise
+                if token.count(".") == 1:
+                    point_tokens.append(id)
                 if check_token < 0:
                     valid_minus_token.append(id)
                 else:
@@ -109,6 +114,7 @@ class ConstrainedDecoding():
                             not flag_middle and not flag_last):
                         valid_tokens.append(id)
                         valid_tokens_last.append(id)
+                        point_tokens.append(id)
                         continue
                     token_split = token.split(".")
                     try:
@@ -122,6 +128,7 @@ class ConstrainedDecoding():
                             valid_minus_token.append(id)
                         valid_tokens.append(id)
                         valid_tokens_last.append(id)
+                        point_tokens.append(id)
                         continue
                     except Exception:
                         pass
@@ -139,7 +146,8 @@ class ConstrainedDecoding():
                 except Exception:
                     pass
 
-        return (valid_tokens, valid_tokens_last, valid_minus_token)
+        return (valid_tokens, valid_tokens_last,
+                valid_minus_token, point_tokens)
 
     # valid boolean tokens(True or False), gonna check if
     # the llm ended writing by the len of the list of ids -
@@ -258,7 +266,8 @@ class ConstrainedDecoding():
 
         (valid_tokens_numbers,
          valid_tokens_numbers_last,
-         valid_minus_token) = self.valid_tokens_numbers
+         valid_minus_token,
+         point_tokens) = self.valid_tokens_numbers
         (valid_tokens_string,
          valid_tokens_string_last) = self.valid_tokens_string
 
@@ -269,53 +278,70 @@ class ConstrainedDecoding():
             if parameter != next(iter(parameters)):
                 prompt_output += " "
             prompt_output += f"\"{parameter}\": "
-            if value.type == "number":
-
-                # id of the dot "." , need to count dots writed so far,
-                # if there is one, exclude from the valid_tokens list
-                dot_id = self.small_llm.encode(".").tolist()[0][0]
+            if (value.type == "number" or value.type == "integer"
+                    or value.type == "float"):
 
                 if parameter != next(reversed(parameters)):
                     if parameter == next(iter(parameters)):
-                        valid_tokens = valid_tokens_numbers + valid_minus_token
+                        valid_tokens = (valid_tokens_numbers.copy() +
+                                        valid_minus_token.copy())
                     else:
-                        valid_tokens = valid_tokens_numbers
-                    while prompt_output[-1] != ",":
-                        if parameter == next(iter(parameters)):
-                            if prompt_output.split("{")[1].count(".") >= 1:
-                                valid_tokens.remove(dot_id)
-                        else:
-                            if prompt_output.split(",")[1].count(".") >= 1:
-                                valid_tokens.remove(dot_id)
+                        valid_tokens = valid_tokens_numbers.copy()
+                    removed_points = False
+                    parameter_output = ""
+                    for _ in range(32):  # 32 tokens max
+                        if (not removed_points and
+                            (value.type == "integer" or
+                             prompt_output.split(":")[-1].count(".") >= 1)):
+                            for token in point_tokens:
+                                if token in valid_tokens:
+                                    valid_tokens.remove(token)
+                            removed_points = True
 
                         biggest_logit_id = self.find_max_logit_id(
                             partial_prompt + prompt_output, set(valid_tokens))
                         choosed_token = self.small_llm.decode(
                             [biggest_logit_id])
                         prompt_output += choosed_token
-
+                        parameter_output += choosed_token
                         print("\n" * 50 + self.terminal_output + prompt_output)
+                        if prompt_output[-1] == ",":
+                            if (value.type != "integer" and
+                                    "." not in parameter_output):
+                                prompt_output = prompt_output[:-1]
+                                prompt_output += ".0,"
+                            break
                 else:
                     if parameter == next(iter(parameters)):
-                        valid_tokens = (valid_tokens_numbers_last +
-                                        valid_minus_token)
+                        valid_tokens = (valid_tokens_numbers_last.copy() +
+                                        valid_minus_token.copy())
                     else:
-                        valid_tokens = valid_tokens_numbers_last
-                    while prompt_output[-1] != "}":
-                        if parameter == next(iter(parameters)):
-                            if prompt_output.split("{")[1].count(".") >= 1:
-                                valid_tokens.remove(dot_id)
-                        else:
-                            if prompt_output.split(",")[1].count(".") >= 1:
-                                valid_tokens.remove(dot_id)
+                        valid_tokens = valid_tokens_numbers_last.copy()
+                    removed_points = False
+                    parameter_output = ""
+                    for _ in range(32):
+                        if (not removed_points and
+                            (value.type == "integer" or
+                             prompt_output.split(":")[-1].count(".") >= 1)):
+                            for token in point_tokens:
+                                if token in valid_tokens:
+                                    valid_tokens.remove(token)
+                            removed_points = True
 
                         biggest_logit_id = self.find_max_logit_id(
                             partial_prompt + prompt_output, set(valid_tokens))
                         choosed_token = self.small_llm.decode(
                             [biggest_logit_id])
                         prompt_output += choosed_token
-
+                        parameter_output += choosed_token
                         print("\n" * 50 + self.terminal_output + prompt_output)
+                        if prompt_output[-1] == "}":
+                            if (value.type != "integer" and
+                                    "." not in parameter_output):
+                                prompt_output = prompt_output[:-1]
+                                prompt_output += ".0}"
+                            break
+
             elif value.type == "boolean":
                 biggest_logit_id = self.find_max_logit_id(
                     partial_prompt + prompt_output, {
@@ -341,38 +367,66 @@ class ConstrainedDecoding():
                 print("\n" * 50 + self.terminal_output + prompt_output)
             else:
                 prompt_output += '"'
-
+                quotation_marks = {
+                    "“": "”",   # U+201C -> U+201D
+                    "„": "“",   # U+201E -> U+201C
+                    "«": "»",   # U+00AB -> U+00BB
+                    "❝": "❞",   # U+275D -> U+275E
+                    "「": "」",  # U+300C -> U+300D
+                    "『": "』",  # U+300E -> U+300F
+                    "〝": "〞",  # U+301D -> U+301E
+                }
                 if parameter != next(reversed(parameters)):
-                    while True:
+                    parameter_output = ""
+                    valid_tokens = valid_tokens_string.copy()
+
+                    for _ in range(64):  # 64 tokens max
                         biggest_logit_id = self.find_max_logit_id(
                             partial_prompt + prompt_output,
-                            set(valid_tokens_string))
+                            set(valid_tokens))
                         choosed_token = self.small_llm.decode(
                             [biggest_logit_id])
 
+                        for left_quote, right_quote in quotation_marks.items():
+                            if right_quote in choosed_token:
+                                if left_quote not in parameter_output:
+                                    choosed_token = '"'
+
                         prompt_output += choosed_token
+                        parameter_output += choosed_token
                         print("\n" * 50 + self.terminal_output + prompt_output)
-                        if (choosed_token[-1] == '"' or
-                            (choosed_token[-1] == "," and
-                             choosed_token[-2] == '"')):
+                        if (prompt_output[-1] == '"' or
+                            (prompt_output[-1] == "," and
+                             prompt_output[-2] == '"')):
                             break
 
                     if prompt_output[-1] != ",":
                         prompt_output += ","
                         print("\n" * 50 + self.terminal_output + prompt_output)
                 else:
-                    while True:
+                    parameter_output = ""
+                    valid_tokens = valid_tokens_string_last.copy()
+
+                    for _ in range(64):
                         biggest_logit_id = self.find_max_logit_id(
                             partial_prompt + prompt_output,
-                            set(valid_tokens_string_last))
+                            set(valid_tokens))
                         choosed_token = self.small_llm.decode(
                             [biggest_logit_id])
+                        print(f"Choosed token: {choosed_token}")
+                        for left_quote, right_quote in quotation_marks.items():
+                            # print("entrou aqui")
+                            if right_quote in choosed_token:
+                                print("entrou aqui")
+                                if left_quote not in parameter_output:
+                                    choosed_token = '"'
 
                         prompt_output += choosed_token
+                        parameter_output += choosed_token
                         print("\n" * 50 + self.terminal_output + prompt_output)
-                        if (choosed_token[-1] == '"' or
-                            (choosed_token[-1] == "}" and
-                             choosed_token[-2] == '"')):
+                        if (prompt_output[-1] == '"' or
+                            (prompt_output[-1] == "}" and
+                             prompt_output[-2] == '"')):
                             break
 
                     if prompt_output[-1] != "}":
