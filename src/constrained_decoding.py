@@ -1,3 +1,16 @@
+# *************************************************************************** #
+#                                                                             #
+#                                                         :::      ::::::::   #
+#   constrained_decoding.py                             :+:      :+:    :+:   #
+#                                                     +:+ +:+         +:+     #
+#   By: vivozzo- <vivozzo-@student.42porto.com>     +#+  +:+       +#+        #
+#                                                 +#+#+#+#+#+   +#+           #
+#   Created: 2026/11/16 17:08:16 by vivozzo-           #+#    #+#             #
+#   Updated: 2026/11/16 17:08:17 by vivozzo-          ###   ########.fr       #
+#                                                                             #
+# *************************************************************************** #
+
+
 from math import isfinite
 import json
 from copy import deepcopy

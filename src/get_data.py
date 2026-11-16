@@ -1,3 +1,16 @@
+# *************************************************************************** #
+#                                                                             #
+#                                                         :::      ::::::::   #
+#   get_data.py                                         :+:      :+:    :+:   #
+#                                                     +:+ +:+         +:+     #
+#   By: vivozzo- <vivozzo-@student.42porto.com>     +#+  +:+       +#+        #
+#                                                 +#+#+#+#+#+   +#+           #
+#   Created: 2026/11/16 17:08:24 by vivozzo-           #+#    #+#             #
+#   Updated: 2026/11/16 17:08:25 by vivozzo-          ###   ########.fr       #
+#                                                                             #
+# *************************************************************************** #
+
+
 import json
 from typing import TypeVar
 from pydantic import BaseModel, ConfigDict, ValidationError
