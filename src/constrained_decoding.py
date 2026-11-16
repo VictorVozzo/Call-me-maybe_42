@@ -6,7 +6,7 @@
 #   By: vivozzo- <vivozzo-@student.42porto.com>     +#+  +:+       +#+        #
 #                                                 +#+#+#+#+#+   +#+           #
 #   Created: 2026/11/16 17:08:16 by vivozzo-           #+#    #+#             #
-#   Updated: 2026/11/16 18:35:30 by vivozzo-          ###   ########.fr       #
+#   Updated: 2026/11/16 18:49:45 by vivozzo-          ###   ########.fr       #
 #                                                                             #
 # *************************************************************************** #
 
@@ -494,17 +494,15 @@ class ConstrainedDecoding():
                         valid_tokens_bool_true[0], valid_tokens_bool_false[0]})
                 if biggest_logit_id == valid_tokens_bool_true[0]:
                     for i in range(len(valid_tokens_bool_true)):
-                        choosed_token += self.small_llm.decode(
+                        prompt_output += self.small_llm.decode(
                             [valid_tokens_bool_true[i]])
 
-                        prompt_output += choosed_token
                         print("\n" * 50 + self.terminal_output + prompt_output)
                 else:
                     for j in range(len(valid_tokens_bool_false)):
-                        choosed_token += self.small_llm.decode(
+                        prompt_output += self.small_llm.decode(
                             [valid_tokens_bool_false[j]])
 
-                        prompt_output += choosed_token
                         print("\n" * 50 + self.terminal_output + prompt_output)
                 if parameter != next(reversed(parameters)):
                     prompt_output += ","
