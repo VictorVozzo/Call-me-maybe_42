@@ -2,7 +2,7 @@
 SOURCE_DIR = src
 FUNCTIONS = data/input/functions_definition.json
 INPUT = data/input/function_calling_tests.json
-OUTPUT = data/output/function_calling_results.json
+OUTPUT = data/output/function_calls.json
 
 PROJECT_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 HF_HOME := $(PROJECT_DIR)/.cache/huggingface
