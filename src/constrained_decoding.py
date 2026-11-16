@@ -514,8 +514,8 @@ class ConstrainedDecoding():
 
         output = write_output(prompts_output)
 
-        if os.path.dirname("data/output/") != "":
-            os.makedirs(os.path.dirname("data/output/"), exist_ok=True)
+        if os.path.dirname(self.output_path) != "":
+            os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
 
         try:
             json.loads(output)
