@@ -6,7 +6,7 @@
 #   By: vivozzo- <vivozzo-@student.42porto.com>     +#+  +:+       +#+        #
 #                                                 +#+#+#+#+#+   +#+           #
 #   Created: 2026/11/16 17:08:16 by vivozzo-           #+#    #+#             #
-#   Updated: 2026/11/16 18:49:45 by vivozzo-          ###   ########.fr       #
+#   Updated: 2026/11/16 19:10:47 by vivozzo-          ###   ########.fr       #
 #                                                                             #
 # *************************************************************************** #
 
@@ -557,11 +557,8 @@ class ConstrainedDecoding():
                             set(valid_tokens))
                         choosed_token = self.small_llm.decode(
                             [biggest_logit_id])
-                        print(f"Choosed token: {choosed_token}")
                         for left_quote, right_quote in quotation_marks.items():
-                            # print("entrou aqui")
                             if right_quote in choosed_token:
-                                print("entrou aqui")
                                 if left_quote not in parameter_output:
                                     choosed_token = '"'
 
